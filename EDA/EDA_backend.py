@@ -27,14 +27,14 @@ class EDASingleFeatureBackend:
         # add the missing number to the data
 
         self.data_for_output_file = {"Feature name": feature,
-                                     "Missing values count without removing missing target":
-                                         self.df[feature].isnull().sum()}
+                                     "Existing values count":
+                                         ~self.df[feature].isnull().sum()}
 
         # remove missing target
         self.df = self.df[~self.df[self.target_column].isna()]
 
         # add the missing number to the data
-        self.data_for_output_file["Missing values count after removing missing target"] =\
+        self.data_for_output_file["Missing values count"] =\
             self.df[feature].isnull().sum()
 
         if impute_missing_values is not None:
@@ -55,6 +55,7 @@ class EDASingleFeatureBackend:
 
         bins = numpy.linspace(min(self.X), max(self.X), 100)
 
+        # negative than positive distributation
         red_patch = mpatches.Patch(color='red', label='negative')
         blue_patch = mpatches.Patch(color='blue', label='positive')
         plt.legend(handles=[red_patch, blue_patch])
@@ -62,19 +63,38 @@ class EDASingleFeatureBackend:
         plt.hist(positive_group, bins, alpha=0.7, color='b')
         plt.title(self.feature)
 
-        plt.savefig(os.path.join(self.plot_path, "group_hist_{}.png".format(self.feature)))
+        plt.savefig(os.path.join(self.plot_path, "{}_feature_histogram_positive_group.png".format(self.feature)))
         plt.close()
 
-
+        # positive than negative distributation
         red_patch = mpatches.Patch(color='red', label='negative')
         blue_patch = mpatches.Patch(color='blue', label='positive')
         plt.legend(handles=[red_patch, blue_patch])
-        plt.scatter(negative_group, self.df[self.df[self.target_column] == 0][self.regression_target_column], alpha=0.7, color='r')
-        plt.scatter(positive_group, self.df[self.df[self.target_column] == 1][self.regression_target_column], alpha=0.7, color='b')
-        plt.savefig(os.path.join(self.plot_path, "regression_plot_{}.png".format(self.feature)))
+        plt.hist(positive_group, bins, alpha=0.7, color='b')
+        plt.hist(negative_group, bins, alpha=0.7, color='r')
+        plt.title(self.feature)
+
+        plt.savefig(os.path.join(self.plot_path, "{}_feature_histogram_negative_group.png".format(self.feature)))
         plt.close()
 
-    def analyse_outliers(self, outlier_threshold=3):
+        # overall distributation
+        plt.hist(self.X, bins, alpha=0.7, color='r')
+        plt.title(self.feature)
+
+        plt.savefig(os.path.join(self.plot_path, "{}_feature_histogram.png".format(self.feature)))
+        plt.close()
+
+        reg_plot = 0
+        if reg_plot:
+            red_patch = mpatches.Patch(color='red', label='negative')
+            blue_patch = mpatches.Patch(color='blue', label='positive')
+            plt.legend(handles=[red_patch, blue_patch])
+            plt.scatter(negative_group, self.df[self.df[self.target_column] == 0][self.regression_target_column], alpha=0.7, color='r')
+            plt.scatter(positive_group, self.df[self.df[self.target_column] == 1][self.regression_target_column], alpha=0.7, color='b')
+            plt.savefig(os.path.join(self.plot_path, "regression_plot_{}.png".format(self.feature)))
+            plt.close()
+
+    def analyse_outliers(self, outlier_threshold=5):
 
         # Outliers + outliers ratio
         outliers = self.X[(np.abs(self.X - self.X.mean()) > (outlier_threshold * self.X.std()))]
@@ -85,19 +105,19 @@ class EDASingleFeatureBackend:
         self.data_for_output_file["number of unique values"] = self.X.unique().shape[0]
 
     def write_statistic_info(self):
-        self.data_for_output_file["statistics"] = self.get_statistic_info(self.X)
+        self.data_for_output_file["Statistics\n min, max, average, median, variance, std"] = self.get_statistic_info(self.X)
 
         positive_group = self.X[self.df[self.target_column] == 1]
-        self.data_for_output_file["Positive group statistics"] = self.get_statistic_info(positive_group)
+        self.data_for_output_file["Positive group statistics\n min, max, average, median, variance, std"] = self.get_statistic_info(positive_group)
 
         negative_group = self.X[self.df[self.target_column] == 0]
-        self.data_for_output_file["Negative group statistics"] = self.get_statistic_info(negative_group)
+        self.data_for_output_file["Negative group statistics\n min, max, average, median, variance, std"] = self.get_statistic_info(negative_group)
 
 
     @staticmethod
     def get_statistic_info(data):
         # Min, max, distribution, variance, average
-        return [data.min(), data.max(), data.mean(), data.var(), data.std()]
+        return [data.min(), data.max(), data.mean(), data.median(), data.var(), data.std()]
 
     def calculate_explained_variance_of_target(self):
         # pearson
@@ -105,8 +125,11 @@ class EDASingleFeatureBackend:
 
     def calculate_parameters_of_weak_clf(self):
         clf = tree.DecisionTreeClassifier()
-        clf = clf.fit(self.X.reshape(-1, 1), self.df[self.target_column])
-        self.data_for_output_file["Train score tree"] = clf.score(self.X.reshape(-1, 1), self.df[self.target_column])
+        clf = clf.fit(self.X.values.reshape(-1, 1), self.df[self.target_column])
+        train_error = clf.score(self.X.values.reshape(-1, 1), self.df[self.target_column])
+        if train_error > 0.95:
+            print("feature {}\n training error of {}".format(self.feature, train_error))
+        self.data_for_output_file["Train score tree"] = train_error
         self.data_for_output_file["Tree params"] = clf.get_params()
 
     def get_data_sample(self):
@@ -130,7 +153,7 @@ class EDAMultiFeatureBackend:
                          "religion1", "emotional_support1", "instrumental_support1", "self_distraction1",
                          "denial1", "venting1", "substance_use1", "behavioral_disengagement1", "self_blame1",
                          "active_coping2", "planning2", "positive_reframing2", "acceptance2", "humor2",
-                         "religion2", "emotional_support2", "instumental_support2", "self_distraction2",
+                         "religion2", "emotional_support2", "instrumental_support2", "self_distraction2",
                          "denial2", "venting2", "substance_use2", "behavioral_disengagement2", "self_blam2",
                          "trauma_history8_1", "military_exposure_unit", "HML_5HTT", "HL_MAOA", "HML_NPY",
                          "COMT_Hap1_recode", "COMT_Hap2_recode", "COMT_Hap1_LvsMH", "HML_FKBP5", "Ashken_scale",
