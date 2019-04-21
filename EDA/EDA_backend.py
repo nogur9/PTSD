@@ -1,45 +1,45 @@
+import xlsxwriter
+
 import string
 import numpy
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from itertools import  combinations
 import pandas as pd
+from fancyimpute import KNN, IterativeImputer
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline
+
 from sklearn import tree
 from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
 
 
 class EDASingleFeatureBackend:
 
     # backend of single feature analysis
     dataset_path = r"../Data/PTSD.xlsx"
-    target_column = "PCL_Strict3"
+
     regression_target_column = "PCL3"
 
-    def __init__(self, feature, impute_missing_values=None, plot_path=r"Visualization/plots"):
-
+    def __init__(self, df, feature, targets, impute_missing_values=1, plot_path=r"Visualization/plots"):
+        self.targets = targets
+        self.df = df
         self.feature = feature
         self.plot_path = plot_path
-        # open the data file with feature and target
-
-        self.df = pd.read_excel(self.dataset_path)
 
         # add the missing number to the data
-
-        self.data_for_output_file = {"Feature name": feature,
-                                     "Existing values count":
-                                         ~self.df[feature].isnull().sum()}
-
-        # remove missing target
-        self.df = self.df[~self.df[self.target_column].isna()]
+        self.data_for_output_file = {"Feature name": feature, "Existing values count": (~self.df[feature].isnull()).sum(),
+                                     "Missing values count": self.df[feature].isnull().sum()}
 
         # add the missing number to the data
-        self.data_for_output_file["Missing values count"] =\
-            self.df[feature].isnull().sum()
-
-        if impute_missing_values is not None:
+        if impute_missing_values:
             # if impute_missing_values is an lambda function of imputation method fill the values with it
-            self.df[feature].fillna(impute_missing_values(self.df[feature]), inplace=True)
+            self.df = self.impute(self.df)
         else:
             # else, remove the missing values and the corresponding targets
             self.df = self.df[~self.df[feature].isna()]
@@ -47,55 +47,59 @@ class EDASingleFeatureBackend:
         self.X = self.df[feature]
 
     def plot_distribution(self):
-        # blue
-        positive_group = self.X[self.df[self.target_column] == 1]
-
-        # red
-        negative_group = self.X[self.df[self.target_column] == 0]
 
         bins = numpy.linspace(min(self.X), max(self.X), 100)
 
-        # negative than positive distributation
-        red_patch = mpatches.Patch(color='red', label='negative')
-        blue_patch = mpatches.Patch(color='blue', label='positive')
-        plt.legend(handles=[red_patch, blue_patch])
-        plt.hist(negative_group, bins, alpha=0.7, color='r')
-        plt.hist(positive_group, bins, alpha=0.7, color='b')
-        plt.title(self.feature)
-
-        plt.savefig(os.path.join(self.plot_path, "{}_feature_histogram_positive_group.png".format(self.feature)))
-        plt.close()
-
-        # positive than negative distributation
-        red_patch = mpatches.Patch(color='red', label='negative')
-        blue_patch = mpatches.Patch(color='blue', label='positive')
-        plt.legend(handles=[red_patch, blue_patch])
-        plt.hist(positive_group, bins, alpha=0.7, color='b')
-        plt.hist(negative_group, bins, alpha=0.7, color='r')
-        plt.title(self.feature)
-
-        plt.savefig(os.path.join(self.plot_path, "{}_feature_histogram_negative_group.png".format(self.feature)))
-        plt.close()
-
-        # overall distributation
+        # histogram distributation
         plt.hist(self.X, bins, alpha=0.7, color='r')
         plt.title(self.feature)
 
         plt.savefig(os.path.join(self.plot_path, "{}_feature_histogram.png".format(self.feature)))
         plt.close()
 
-        reg_plot = 0
-        if reg_plot:
+        for target_column in self.targets:
+
+            # blue
+            positive_group = self.X[self.df[target_column] > 0]
+
+            # red
+            negative_group = self.X[self.df[target_column] == 0]
+
+            # negative than positive distributation
             red_patch = mpatches.Patch(color='red', label='negative')
             blue_patch = mpatches.Patch(color='blue', label='positive')
             plt.legend(handles=[red_patch, blue_patch])
-            plt.scatter(negative_group, self.df[self.df[self.target_column] == 0][self.regression_target_column], alpha=0.7, color='r')
-            plt.scatter(positive_group, self.df[self.df[self.target_column] == 1][self.regression_target_column], alpha=0.7, color='b')
-            plt.savefig(os.path.join(self.plot_path, "regression_plot_{}.png".format(self.feature)))
+            plt.hist(negative_group, bins, alpha=0.7, color='r')
+            plt.hist(positive_group, bins, alpha=0.7, color='b')
+            plt.title(self.feature)
+
+            plt.savefig(os.path.join(self.plot_path, "{}_{}_histogram_positive_group.png".format(target_column, self.feature)))
             plt.close()
 
-    def analyse_outliers(self, outlier_threshold=5):
+            # positive than negative distributation
+            reversed_plot = 0
+            if reversed_plot:
+                red_patch = mpatches.Patch(color='red', label='negative')
+                blue_patch = mpatches.Patch(color='blue', label='positive')
+                plt.legend(handles=[red_patch, blue_patch])
+                plt.hist(positive_group, bins, alpha=0.7, color='b')
+                plt.hist(negative_group, bins, alpha=0.7, color='r')
+                plt.title(self.feature)
 
+                plt.savefig(os.path.join(self.plot_path, "{}_feature_histogram_negative_group.png".format(self.feature)))
+                plt.close()
+
+            reg_plot = 0
+            if reg_plot:
+                red_patch = mpatches.Patch(color='red', label='negative')
+                blue_patch = mpatches.Patch(color='blue', label='positive')
+                plt.legend(handles=[red_patch, blue_patch])
+                plt.scatter(negative_group, self.df[self.df[target_column] == 0][self.regression_target_column], alpha=0.7, color='r')
+                plt.scatter(positive_group, self.df[self.df[target_column] > 0][self.regression_target_column], alpha=0.7, color='b')
+                plt.savefig(os.path.join(self.plot_path, "regression_plot_{}.png".format(self.feature)))
+                plt.close()
+
+    def analyse_outliers(self, outlier_threshold=3.5):
         # Outliers + outliers ratio
         outliers = self.X[(np.abs(self.X - self.X.mean()) > (outlier_threshold * self.X.std()))]
         self.data_for_output_file["Outliers values"] = outliers
@@ -107,11 +111,12 @@ class EDASingleFeatureBackend:
     def write_statistic_info(self):
         self.data_for_output_file["Statistics\n min, max, average, median, variance, std"] = self.get_statistic_info(self.X)
 
-        positive_group = self.X[self.df[self.target_column] == 1]
-        self.data_for_output_file["Positive group statistics\n min, max, average, median, variance, std"] = self.get_statistic_info(positive_group)
+        for target_column in self.targets:
+            positive_group = self.X[self.df[target_column] > 0]
+            self.data_for_output_file[f"target {target_column} Positive group statistics\n min, max, average, median, variance, std"] = self.get_statistic_info(positive_group)
 
-        negative_group = self.X[self.df[self.target_column] == 0]
-        self.data_for_output_file["Negative group statistics\n min, max, average, median, variance, std"] = self.get_statistic_info(negative_group)
+            negative_group = self.X[self.df[target_column] == 0]
+            self.data_for_output_file[f"target {target_column} Negative group statistics\n min, max, average, median, variance, std"] = self.get_statistic_info(negative_group)
 
 
     @staticmethod
@@ -121,16 +126,44 @@ class EDASingleFeatureBackend:
 
     def calculate_explained_variance_of_target(self):
         # pearson
-        self.data_for_output_file["Pearson correlation"] = np.corrcoef(self.X, self.df[self.target_column])[1, 0]
+        for target_column in self.targets:
+            self.data_for_output_file[f"Target {target_column} Pearson correlation"] = np.corrcoef(self.X, self.df[target_column])[1, 0]
+
+    def impute(self, df):
+        #knn = KNN()
+        #return pd.DataFrame(knn.fit_transform(df), columns=df.columns)
+        mice = IterativeImputer()
+        return pd.DataFrame(mice.fit_transform(df), columns=df.columns)
 
     def calculate_parameters_of_weak_clf(self):
-        clf = tree.DecisionTreeClassifier()
-        clf = clf.fit(self.X.values.reshape(-1, 1), self.df[self.target_column])
-        train_error = clf.score(self.X.values.reshape(-1, 1), self.df[self.target_column])
-        if train_error > 0.95:
-            print("feature {}\n training error of {}".format(self.feature, train_error))
-        self.data_for_output_file["Train score tree"] = train_error
-        self.data_for_output_file["Tree params"] = clf.get_params()
+        # for every target
+
+        X = self.df[[self.feature]]
+        for target_column in self.targets:
+            Y = self.df[target_column] > 0
+
+            X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.1, random_state=271828, stratify=Y)
+            y_train = y_train > 0
+
+            pipe = Pipeline(steps=[
+                ('SMOTE', SMOTE(random_state=27)),
+                ('classifier', DecisionTreeClassifier())])
+
+            params_grid = [
+                {
+                    'classifier': [DecisionTreeClassifier(), KNeighborsClassifier()],
+                    'SMOTE__k_neighbors': [5, 3, 10],
+
+                }]
+
+            gs = GridSearchCV(pipe, params_grid, cv=5, scoring='f1')
+
+            gs.fit(X_train, y_train.values)
+
+            self.data_for_output_file[f"Train f1 score {target_column}"] = gs.best_score_
+            self.data_for_output_file[f"grid search params {target_column}"] = gs.best_params_
+
+
 
     def get_data_sample(self):
         self.data_for_output_file["Sample"] = self.df.sample(3)
@@ -140,46 +173,16 @@ class EDASingleFeatureBackend:
 
 
 class EDAMultiFeatureBackend:
-    # backend of multiple features analysis
-    dataset_path = r"../Data/PTSD.xlsx"
-    target_column = "PCL_Strict3"
-    features_groups = {}
-    plot_path = r"Visualization/plots"
-    file_path = r"feature_summery"
 
-    binary_features = [ "highschool_diploma", "Hebrew", "dyslexia", "ADHD"]
-    categorical_features = ["age",  "ptgi2",
-                         "active_coping1", "planning1", "positive_reframing1", "acceptance1", "humor1",
-                         "religion1", "emotional_support1", "instrumental_support1", "self_distraction1",
-                         "denial1", "venting1", "substance_use1", "behavioral_disengagement1", "self_blame1",
-                         "active_coping2", "planning2", "positive_reframing2", "acceptance2", "humor2",
-                         "religion2", "emotional_support2", "instrumental_support2", "self_distraction2",
-                         "denial2", "venting2", "substance_use2", "behavioral_disengagement2", "self_blam2",
-                         "trauma_history8_1", "military_exposure_unit", "HML_5HTT", "HL_MAOA", "HML_NPY",
-                         "COMT_Hap1_recode", "COMT_Hap2_recode", "COMT_Hap1_LvsMH", "HML_FKBP5", "Ashken_scale",
-                         "Sephar_scale", "Unknown"]
 
-    numerical_features = ["T1Acc1t", "T1Acc1n", "T2Acc1t", "T2Acc1n", "T1ETBE", "T1bias", "T2bias", "state1", "state2",
-                           "trait1", "trait2", "lot1", "lot2", "phq1", "phq2", "cd_risc1", "PCL1", "PCL2"]
-    missing_values_threshold_for_featues = 0.5
-    missing_values_threshold_for_subjects = 0.95
+    def __init__(self,df , features, target, plot_path=r"Visualization/plots"):
 
-    def __init__(self, df, include_data_without_target=True):
-
-        # open the data file with feature and target
-
+        self.file_path = ""
+        self.plot_path = plot_path
+        self.target = target
         self.df = df
-
-        self.df = self.df.dropna(axis=1, thresh=self.missing_values_threshold_for_featues)
-        self.df = self.df.dropna(axis=0, thresh=self.missing_values_threshold_for_subjects)
-
-        # remove missing target
-        if not include_data_without_target:
-            self.df = self.df[~self.df[self.target_column].isna()]
-
-        self.df[self.binary_features] = self.df[self.binary_features].fillna(self.df.mode().iloc[0])
-        mean_imputation_features = self.categorical_features + self.numerical_features
-        self.df[mean_imputation_features] = self.df[mean_imputation_features].fillna(self.df.mean())
+        self.features = features
+        self.df = self.impute(self.df)
 
 
     def plot_corr_matrix(self, size=10):
@@ -228,10 +231,10 @@ class EDAMultiFeatureBackend:
         """
 
         # blue
-        positive_group = self.df[self.df[self.target_column] == 1]
+        positive_group = self.df[self.df[self.target] == 1]
 
         # red
-        negative_group = self.df[self.df[self.target_column] == 0]
+        negative_group = self.df[self.df[self.target] == 0]
 
         names = list(self.df)
         for i in names:
@@ -245,8 +248,69 @@ class EDAMultiFeatureBackend:
                 plt.scatter(negative_group[i], negative_group[j], c='r')
                 plt.savefig(os.path.join(self.plot_path, "switched_two_features_plots_{}_{}.png".format(i, j)))
                 plt.close()
-    def plot_features_groups(self):
-        pass
 
-    def calculate_clusters(self):
-        pass
+
+    def interactions(self):
+        interation_for_output_file = []
+
+        index = 0
+        for i in list(combinations(self.features, 2)):
+            print(index)
+
+            single_interation_data = {"Features names": i, f"Pearson correlation":
+                np.corrcoef(self.df[i[0]] * self.df[i[1]], self.df[self.target])[1, 0]}
+
+            X = self.df[[*i]]
+            Y = self.df[self.target]
+
+            X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.1, random_state=271828, stratify=Y)
+
+
+            pipe = Pipeline(steps=[
+                    ('SMOTE', SMOTE(random_state=27)),
+                    ('classifier', DecisionTreeClassifier())])
+
+            params_grid = [
+                    {
+                        'classifier': [DecisionTreeClassifier(), KNeighborsClassifier()],
+                        'SMOTE__k_neighbors': [5, 3, 10]
+                    }]
+
+            gs = GridSearchCV(pipe, params_grid, cv=5, scoring='f1')
+
+            gs.fit(X_train, y_train.values)
+
+            single_interation_data[f"Train f1 score"] = gs.best_score_
+            single_interation_data[f"grid search params"] = gs.best_params_
+            interation_for_output_file.append(single_interation_data)
+            index += 1
+
+
+        file_path = r"feature_summery"
+        file_name = "EDA multiple Features no COMT_Ranked_outer merge.xlsx"
+        workbook = xlsxwriter.Workbook(os.path.join(file_path, file_name))
+        worksheet = workbook.add_worksheet()
+        row = 0
+        for output_data in interation_for_output_file:
+            col = 0
+            for key in output_data.keys():
+                if row == 0:
+                    worksheet.write(row, col, key)
+                    row = 1
+                    worksheet.write(row, col, str(output_data[key]))
+                    col += 1
+                    row = 0
+                else:
+                    worksheet.write(row, col, str(output_data[key]))
+                    col += 1
+            row += 1
+        workbook.close()
+
+    def impute(self, df):
+        #knn = KNN()
+        #return pd.DataFrame(knn.fit_transform(df), columns=df.columns)
+        mice = IterativeImputer()
+        return pd.DataFrame(mice.fit_transform(df), columns=df.columns)
+
+
+
