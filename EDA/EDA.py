@@ -137,8 +137,8 @@ class EDA:
                                                     impute_missing_values=self.impute_missing_values, knn=self.knn)
 
             multiple_features_eda.interactions()
-            multiple_features_eda.create_corr_data_file()
-            multiple_features_eda.two_features_plots()
+            #multiple_features_eda.create_corr_data_file()
+            #multiple_features_eda.two_features_plots()
 
 
     def test_algorithms(self):
@@ -160,10 +160,9 @@ class EDA:
 
 
     def test_algorithms_for_trget_intrusion(self):
-        print("\n intrusion_cutoff \n")
-
-        f = ['trait1', 'q6.5_PHYS_pcl1', 'q6.14_ANGER_pcl2', 'state1',
-             'PCL1', 'phq1', 'self_distraction1', 'hypertention_pcl2', 'venting1', 'PCL2']
+        f = ['trait1', 'q6.5_PHYS_pcl1', 'q6.14_ANGER_pcl2', 'state1', 'PCL1', 'phq1', 'self_distraction1',
+                    'hypertention_pcl2', 'venting1', 'PCL2', 'self_distraction2', 'behavioral_disengagement2',
+                    'q6.17_STRTL_pcl2', 'substance_use1']
 
         target = "intrusion_cutoff"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, f, target,
@@ -176,11 +175,13 @@ class EDA:
 
 
     def test_algorithms_for_trget_avoidance(self):
-        print("\n avoidance_cutoff \n")
-
-        f = ['q6.14_ANGER_pcl1', 'avoidance_pcl2', 'depression_pcl1', 'q6.7_AVSIT_pcl2',
-             'q6.11_NUMB_pcl1', 'q6.12_FUTRE_pcl2', 'avoidance_pcl1',
-             'q6.2_DREAM_pcl2', 'q6.3_FLASH_pcl2', 'PCL_Broad2']
+        f = [('q6.14_ANGER_pcl1', 'avoidance_pcl2'), 'depression_pcl1', 'q6.7_AVSIT_pcl2',
+             'q6.11_NUMB_pcl1', 'q6.7_AVSIT_pcl2', 'q6.11_NUMB_pcl1', 'q6.12_FUTRE_pcl2',
+             'avoidance_pcl1', 'q6.7_AVSIT_pcl2', 'PCL_Broad1', 'q6.7_AVSIT_pcl2',
+             'q6.2_DREAM_pcl2', 'q6.7_AVSIT_pcl2', 'q6.3_FLASH_pcl2', 'q6.7_AVSIT_pcl2',
+             'PCL_Broad2', 'q6.7_AVSIT_pcl1', 'PCL_Strict1', 'q6.7_AVSIT_pcl2',
+             'q6.1_INTRU_pcl1', 'avoidance_pcl2', 'intrusion_pcl1', 'avoidance_pcl2'
+        ]
 
         target = "avoidance_cutoff"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, f, target,
@@ -217,7 +218,8 @@ class EDA:
 
         hypertension_features = ['trait1', 'state1', 'trait2', 'hypertention_pcl1',
              'q6.15_CONC_pcl1', 'hypertention_pcl2', 'lot1', 'avoidance_pcl2',
-             'active_coping1', 'state2']
+             'active_coping1', 'state2'
+                                 ]
         avoidance_features = ['q6.14_ANGER_pcl1', 'avoidance_pcl2', 'depression_pcl1', 'q6.7_AVSIT_pcl2',
              'q6.11_NUMB_pcl1', 'q6.12_FUTRE_pcl2', 'avoidance_pcl1',
              'q6.2_DREAM_pcl2', 'q6.3_FLASH_pcl2', 'PCL_Broad2']
@@ -240,13 +242,13 @@ class EDA:
 
 
 eda = EDA()
-eda.three_models_combined()
+#eda.three_models_combined()
 #
 # eda.test_algorithms_for_trget_hypertension()
 # eda.test_algorithms_for_trget_avoidance()
 # eda.test_algorithms_for_trget_intrusion()
 
+eda.unified_analysis()
 
-#eda.unified_analysis()
 #eda.single_feature_analysis()
 
