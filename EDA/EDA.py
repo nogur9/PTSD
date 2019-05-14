@@ -30,15 +30,17 @@ class EDA:
                   'q6.5_PHYS_pcl1', 'q6.6_AVTHT_pcl1', 'q6.7_AVSIT_pcl1', 'q6.8_AMNES_pcl1', 'q6.9_DISINT_pcl1',
                   'q6.10_DTACH_pcl1', 'q6.11_NUMB_pcl1', 'q6.12_FUTRE_pcl1', 'q6.13_SLEEP_pcl1',
                   'q6.14_ANGER_pcl1', 'q6.15_CONC_pcl1', 'q6.16_HYPER_pcl1', 'q6.17_STRTL_pcl1',
-                  'intrusion_pcl1', 'avoidance_pcl1', 'hypertention_pcl1', 'depression_pcl1',
+                  'intrusion_pcl1', 'avoidance_pcl1', 'hypertention_pcl1', 'depression_pcl1', 'tred_pcl1',
                   'q6.1_INTRU_pcl2', 'q6.2_DREAM_pcl2',
                   'q6.3_FLASH_pcl2', 'q6.4_UPSET_pcl2',
                   'q6.5_PHYS_pcl2', 'q6.6_AVTHT_pcl2', 'q6.7_AVSIT_pcl2', 'q6.8_AMNES_pcl2', 'q6.9_DISINT_pcl2',
                   'q6.10_DTACH_pcl2', 'q6.11_NUMB_pcl2', 'q6.12_FUTRE_pcl2', 'q6.13_SLEEP_pcl2',
                   'q6.14_ANGER_pcl2', 'q6.15_CONC_pcl2', 'q6.16_HYPER_pcl2', 'q6.17_STRTL_pcl2',
-                  'intrusion_pcl2', 'avoidance_pcl2', 'hypertention_pcl2', 'depression_pcl2']
+                  'intrusion_pcl2', 'avoidance_pcl2', 'hypertention_pcl2', 'depression_pcl2', 'tred_pcl2']
     target_features = ["PCL_Strict3"]
-    target_features_2 = ["intrusion_cutoff", "avoidance_cutoff", "hypertention_cutoff", 'depression_cutoff', 'diagnosis']
+    target_features_2 = ["only_avoidance_cutoff", "tred_cutoff"]
+    # ["intrusion_cutoff", "avoidance_cutoff", "hypertention_cutoff",
+    #                'depression_cutoff', 'diagnosis', "PCL3", "only_avoidance_cutoff", "tred_cutoff"]
     ID = ["ID"]
     dataset_path = r"../Data/PTSD.xlsx"
 
@@ -248,7 +250,7 @@ eda = EDA()
 # eda.test_algorithms_for_trget_avoidance()
 # eda.test_algorithms_for_trget_intrusion()
 
-eda.unified_analysis()
+#eda.unified_analysis()
 
-#eda.single_feature_analysis()
+eda.single_feature_analysis()
 

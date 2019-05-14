@@ -186,7 +186,7 @@ class EDAMultiFeatureBackend:
             # if impute_missing_values is an lambda function of imputation method fill the values with it
                 self.plot_path = os.path.join(plot_path, 'knn_imputation', target)
                 self.df = self.impute(self.df)
-                self.inteactions_file_name = "sum interaction EDA multiple Features outer merge KNN imputation.xlsx"
+                self.inteactions_file_name = "multiply interaction EDA multiple Features outer merge KNN imputation.xlsx"
             else:
                 self.plot_path = os.path.join(plot_path, 'mice_imputation', target)
                 self.df = self.impute(self.df)
@@ -285,11 +285,10 @@ class EDAMultiFeatureBackend:
             for i in list(combinations(self.features, j)):
                 print(index)
 
-                single_interation_data = {"Features names": i,
-                    "Pearson correlation":
+                single_interation_data = {"Features names": i, "Pearson correlation":
                     np.corrcoef(self.df[i[0]] * self.df[i[1]], self.df[self.target])[1, 0]}
 
-                X = (self.df[i[0]] + self.df[i[1]]).values.reshape(-1, 1)
+                X = (self.df[i[0]] * self.df[i[1]]).values.reshape(-1, 1)
                 Y = self.df[self.target]
 
                 pipe = Pipeline(steps=[
@@ -427,8 +426,6 @@ class EDAMultiFeatureBackend:
         X = self.df
         Y = self.df[self.target]# strict
         all_Y = [self.target, "intrusion_cutoff", "avoidance_cutoff", "hypertention_cutoff"]
-
-
 
 
         X_train, X_test, y_train, y_test = train_test_split(X, self.df[all_Y], test_size=0.25, random_state = 8526566, stratify=Y)
