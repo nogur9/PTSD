@@ -1,14 +1,18 @@
 import xlsxwriter
 from sklearn.model_selection import cross_val_score
-from sklearn.feature_selection import RFE, SelectFdr
+from sklearn.feature_selection import RFE, SelectKBest, SelectFdr, SelectFpr
 import string
 import datawig
 import numpy
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.linear_model import ElasticNet
+from feature_engineering.engineering import FeatureEngineering
 import os
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.svm import SVC
 from xgboost import XGBClassifier, XGBRegressor
 from itertools import combinations
 import pandas as pd
@@ -19,7 +23,7 @@ from imblearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 from sklearn import tree
 from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold, RandomizedSearchCV
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 
@@ -46,55 +50,108 @@ class EDAMultiFeatureBackend:
         return pd.DataFrame(mice.fit_transform(df), columns=df.columns)
 
 
-    def model_checking(self):
-
-        X = self.df[self.features]
+    def model_checking(self, n, scoring='f1'):
+        X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
         Y = self.df[self.target]
-
-        pipelines = [
-             Pipeline(steps=[
-                 ('classifier', BalancedRandomForestClassifier(n_estimators=200))]),
-
-             Pipeline(steps=[
-                 # ('rfe', RFE(XGBClassifier(), )),
-                 ('classifier', BalancedBaggingClassifier(n_estimators=200))]),
-
-            Pipeline(steps=[
-                ('rfe', SMOTE()),
-                ('classifier', XGBClassifier(n_estimators=1000, reg_alpha=1))]),
-            Pipeline(steps=[
-                 ('rfe', BorderlineSMOTE()),
-                 ('classifier', XGBClassifier(n_estimators=1000, reg_alpha=1))]),
-
-            Pipeline(steps=[
-                # ('rfe', RFE(XGBClassifier(), )),
-                ('classifier', XGBClassifier(n_estimators=1000, scale_pos_weight=3, reg_alpha=1))]),
-
-            Pipeline(steps=[
-                ('rfe', RFE(XGBClassifier())),
-                ('classifier', XGBClassifier(n_estimators=1000, scale_pos_weight=3, reg_alpha=1))])
-
-        ]
-
+        c = ((len(Y) - sum(Y))/ sum(Y))
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
 
+        pipe = Pipeline(steps=[
+            ('feature_selection', RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+            ('sampling', SMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
 
-        for pipe in pipelines:
-            scores = cross_val_score(pipe, X_train.values, y_train, scoring='precision', cv=StratifiedKFold(5))
-            print(pipe)
-            print("cross val scores")
-            print(sum(scores)/5)
-            pipe.fit(X_train.values, y_train.values)
-            y_pred = pipe.predict(X_test.values)
+        params = {'feature_selection':[RFE(XGBClassifier(n_estimators=100, reg_alpha=1, scale_pos_weight=c),  n_features_to_select=n),
+                                       SelectKBest(k=n), SelectFpr(alpha=1/n), SelectFdr(alpha=1/n)],
+                  'sampling': [SMOTE(), BorderlineSMOTE()],
+                  'sampling__k_neighbors': [5, 10],
+                  'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(),
+                                 BalancedRandomForestClassifier()],
+                  'classifier__n_estimators': [100, 300],
+                  'classifier__max_depth': [2, 3, 5]
+                  }
+        clf = GridSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
 
-            acc = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred)
-            recall = recall_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred)
-            print("test scores")
-            print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
+        clf.fit(X_train, y_train)
+        print("clf.best_params_", clf.best_params_)
+        print(f"best {scoring} score", clf.best_score_)
+
+        y_pred = clf.best_estimator_.predict(X_test.values)
+
+        acc = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+        recall = recall_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred)
+        print("test scores")
+        print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
+
+    def logistic_regression_grid_search(self, scoring = 'f1'):
+
+        X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
+
+        pipe = Pipeline(steps=[
+            ('sampling', SMOTE()),
+            ('classifier', ElasticNet())
+        ])
+
+        params = {
+                  'sampling': [SMOTE(), BorderlineSMOTE()],
+                  'sampling__k_neighbors': [5, 10],
+                  "classifier__alpha": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+                  "classifier__l1_ratio": np.arange(0.0, 1.0, 0.2)
+                  }
+        clf = GridSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
+
+        clf.fit(X_train, y_train)
+        print("clf.best_params_", clf.best_params_)
+        print(f"best {scoring} score", clf.best_score_)
+
+        y_pred = clf.best_estimator_.predict(X_test.values)
+
+        acc = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+        recall = recall_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred)
+        print("test scores")
+        print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
 
 
+    def model_checking_without_resampling(self, n, scoring='f1'):
+        X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
+
+        pipe = Pipeline(steps=[
+            ('feature_selection', RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+        params = {'feature_selection':[RFE(XGBClassifier(n_estimators=100, reg_alpha=1, scale_pos_weight=c), n_features_to_select=n),
+                                       SelectKBest(k=n), SelectFpr(alpha=1/n), SelectFdr(alpha=1/n)],
+                  'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(scale_pos_weight=c),
+                                 BalancedRandomForestClassifier()],
+                  'classifier__n_estimators': [100, 300],
+                  'classifier__max_depth': [2, 3, 5]
+                  }
+        clf = RandomizedSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
+
+        clf.fit(X_train, y_train)
+        print("clf.best_params_", clf.best_params_)
+        print(f"best {scoring} score", clf.best_score_)
+
+        y_pred = clf.best_estimator_.predict(X_test.values)
+
+        acc = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+        recall = recall_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred)
+        print("test scores")
+        print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
 
     def illigal_genralization_checking(self, X_test, y_test):
 
@@ -244,6 +301,11 @@ class EDAMultiFeatureBackend:
         precision = precision_score(y_test, y_pred)
         print("test scores")
         print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
+
+
+
+
+
 
 
 
