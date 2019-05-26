@@ -7,11 +7,11 @@ import numpy
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.linear_model import ElasticNet
+from sklearn.linear_model import ElasticNet, LogisticRegression
 from feature_engineering.engineering import FeatureEngineering
 import os
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.preprocessing import FunctionTransformer
+from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from sklearn.svm import SVC
 from xgboost import XGBClassifier, XGBRegressor
 from itertools import combinations
@@ -49,6 +49,322 @@ class EDAMultiFeatureBackend:
         mice = IterativeImputer()
         return pd.DataFrame(mice.fit_transform(df), columns=df.columns)
 
+    def model_selection_by_grid_search(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
+
+        # _____________________________________________________________________________________________________________________
+
+
+        # Construct some pipelines
+        pipe_lr = Pipeline([('scl', StandardScaler()),
+                            ('clf', LogisticRegression(random_state=42))])
+
+        pipe = Pipeline(steps=[
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+            ('sampling', SMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+        params = {'feature_selection': [
+            RFE(XGBClassifier(n_estimators=100, reg_alpha=1, scale_pos_weight=c), n_features_to_select=n),
+            SelectKBest(k=n), SelectFpr(alpha=1 / n), SelectFdr(alpha=1 / n)],
+                  'sampling': [SMOTE(), BorderlineSMOTE()],
+                  'sampling__k_neighbors': [5, 10],
+                  'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(),
+                                 BalancedRandomForestClassifier()],
+                  'classifier__n_estimators': [100, 200, 400, 600],
+                  'classifier__max_depth': [2, 3, 5, 10]
+                  }
+
+
+        pipe_lr_pca = Pipeline(steps=[
+            ('scl', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+            ('sampling', SMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+
+        pipe_lr_pca = Pipeline(steps=[
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+            ('sampling', SMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+
+        pipe_rf = Pipeline(steps=[
+            ('scl', StandardScaler()),
+            ('feature_selection',SelectKBest(k=n)),
+            ('sampling', SMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+
+        pipe_rf = Pipeline(steps=[
+            ('scl', StandardScaler()),
+            ('feature_selection',SelectFpr(alpha=1 / n)),
+            ('sampling', SMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+        pipe_svm_pca = Pipeline([('scl', StandardScaler()),
+                                 ('feature_selection',SelectFpr(alpha=1 / n)),
+                                  ('sampling', SMOTE()),
+                                 ('clf', SVC(random_state=42))])
+
+        pipe_rf_pca = Pipeline([('scl', StandardScaler()),
+                                ('pca', PCA(n_components=2)),
+                                ('clf', RandomForestClassifier(random_state=42))])
+
+        pipe_lr_pca = Pipeline(steps=[
+            ('scl', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+        pipe_lr_pca = Pipeline(steps=[
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+        pipe_rf = Pipeline(steps=[
+            ('scl', StandardScaler()),
+            ('feature_selection', SelectKBest(k=n)),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+        pipe_rf = Pipeline(steps=[
+            ('scl', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=1 / n)),
+            ('sampling', SMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100))
+        ])
+
+        pipe_svm_pca = Pipeline([('scl', StandardScaler()),
+                                 ('feature_selection', SelectFpr(alpha=1 / n)),
+                                 ('clf', SVC(random_state=42))])
+        pipe = Pipeline(steps=[
+            ('scl', StandardScaler()),
+            ('sampling', SMOTE()),
+            ('classifier', LogisticRegression(penalty='l1'))
+        ])
+
+        pipe = Pipeline(steps=[
+            ('scl', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=1 / n)),
+            ('sampling', SMOTE()),
+            ('classifier', LogisticRegression(penalty='l1'))
+        ])
+
+        params = {
+            'sampling': [SMOTE(), BorderlineSMOTE()],
+            'sampling__k_neighbors': [5, 10],
+            'classifier__penalty': ['l1'],
+            "classifier__C": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+            #  "classifier__l1_ratio": np.arange(0.0, 1.0, 0.2)
+        }
+        # Set grid search params
+        param_range = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        param_range_fl = [1.0, 0.5, 0.1]
+
+        grid_params_lr = [{'clf__penalty': ['l1', 'l2'],
+                           'clf__C': param_range_fl,
+                           'clf__solver': ['liblinear']}]
+
+        grid_params_rf = [{'clf__criterion': ['gini', 'entropy'],
+                           'clf__min_samples_leaf': param_range,
+                           'clf__max_depth': param_range,
+                           'clf__min_samples_split': param_range[1:]}]
+
+        grid_params_svm = [{'clf__kernel': ['linear', 'rbf'],
+                            'clf__C': param_range}]
+
+        # Construct grid searches
+        jobs = -1
+
+        gs_lr = GridSearchCV(estimator=pipe_lr,
+                             param_grid=grid_params_lr,
+                             scoring='accuracy',
+                             cv=10)
+
+        gs_lr_pca = GridSearchCV(estimator=pipe_lr_pca,
+                                 param_grid=grid_params_lr,
+                                 scoring='accuracy',
+                                 cv=10)
+
+        gs_rf = GridSearchCV(estimator=pipe_rf,
+                             param_grid=grid_params_rf,
+                             scoring='accuracy',
+                             cv=10,
+                             n_jobs=jobs)
+
+        gs_rf_pca = GridSearchCV(estimator=pipe_rf_pca,
+                                 param_grid=grid_params_rf,
+                                 scoring='accuracy',
+                                 cv=10,
+                                 n_jobs=jobs)
+
+        gs_svm = GridSearchCV(estimator=pipe_svm,
+                              param_grid=grid_params_svm,
+                              scoring='accuracy',
+                              cv=10,
+                              n_jobs=jobs)
+
+        gs_svm_pca = GridSearchCV(estimator=pipe_svm_pca,
+                                  param_grid=grid_params_svm,
+                                  scoring='accuracy',
+                                  cv=10,
+                                  n_jobs=jobs)
+
+        # List of pipelines for ease of iteration
+        grids = [gs_lr, gs_lr_pca, gs_rf, gs_rf_pca, gs_svm, gs_svm_pca]
+
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'Logistic Regression', 1: 'Logistic Regression w/PCA',
+                     2: 'Random Forest', 3: 'Random Forest w/PCA',
+                     4: 'Support Vector Machine', 5: 'Support Vector Machine w/PCA'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_acc = 0.0
+        best_clf = 0
+        best_gs = ''
+        for idx, gs in enumerate(grids):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            gs.fit(X_train, y_train)
+            # Best params
+            print('Best params: %s' % gs.best_params_)
+            # Best training data accuracy
+            print('Best training accuracy: %.3f' % gs.best_score_)
+            # Predict on test data with best params
+            y_pred = gs.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set accuracy score for best params: %.3f ' % accuracy_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if accuracy_score(y_test, y_pred) > best_acc:
+                best_acc = accuracy_score(y_test, y_pred)
+                best_gs = gs
+                best_clf = idx
+        print('\nClassifier with best test set accuracy: %s' % grid_dict[best_clf])
+
+
+        if 0:
+            # ____________________________________________________________________________________________________________________
+            pipe = Pipeline(steps=[
+                ('feature_selection', RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+                ('sampling', SMOTE()),
+                ('classifier', RandomForestClassifier(n_estimators=100))
+            ])
+
+            params = {'feature_selection':[RFE(XGBClassifier(n_estimators=100, reg_alpha=1, scale_pos_weight=c),  n_features_to_select=n),
+                                           SelectKBest(k=n), SelectFpr(alpha=1/n), SelectFdr(alpha=1/n)],
+                      'sampling': [SMOTE(), BorderlineSMOTE()],
+                      'sampling__k_neighbors': [5, 10],
+                      'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(),
+                                     BalancedRandomForestClassifier()],
+                      'classifier__n_estimators': [100, 200, 400,600],
+                      'classifier__max_depth': [2, 3, 5, 10]
+                      }
+            clf = GridSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
+
+            clf.fit(X_train, y_train)
+            print("clf.best_params_", clf.best_params_)
+            print(f"best {scoring} score", clf.best_score_)
+
+            y_pred = clf.best_estimator_.predict(X_test.values)
+
+            acc = accuracy_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred)
+            print("test scores")
+            print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
+
+        #_____________________________________________________________________________
+
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+            Y = self.df[self.target]
+            c = ((len(Y) - sum(Y)) / sum(Y))
+            X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
+
+            pipe = Pipeline(steps=[
+                ('sampling', SMOTE()),
+                ('classifier', LogisticRegression())
+            ])
+
+            params = {
+                'sampling': [SMOTE(), BorderlineSMOTE()],
+                'sampling__k_neighbors': [5, 10],
+                'classifier__penalty': ['l1'],
+                "classifier__C": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+                #  "classifier__l1_ratio": np.arange(0.0, 1.0, 0.2)
+            }
+            clf = GridSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
+
+            clf.fit(X_train, y_train)
+            print("clf.best_params_", clf.best_params_)
+            print(f"best {scoring} score", clf.best_score_)
+
+            y_pred = clf.best_estimator_.predict(X_test.values)
+
+            acc = accuracy_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred)
+            print("test scores")
+            print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
+
+            # ____________________________________________________________________________________
+
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+            Y = self.df[self.target]
+            c = ((len(Y) - sum(Y)) / sum(Y))
+            X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
+
+            pipe = Pipeline(steps=[
+                ('feature_selection',
+                 RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+                ('classifier', RandomForestClassifier(n_estimators=100))
+            ])
+
+            params = {'feature_selection': [
+                RFE(XGBClassifier(n_estimators=100, reg_alpha=1, scale_pos_weight=c), n_features_to_select=n),
+                SelectKBest(k=n), SelectFpr(alpha=1 / n), SelectFdr(alpha=1 / n)],
+                      'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(scale_pos_weight=c),
+                                     BalancedRandomForestClassifier()],
+                      'classifier__n_estimators': [100, 300, 500],
+                      'classifier__max_depth': [10, 3, 5]
+                      }
+            clf = RandomizedSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
+
+            clf.fit(X_train, y_train)
+            print("clf.best_params_", clf.best_params_)
+            print(f"best {scoring} score", clf.best_score_)
+
+            y_pred = clf.best_estimator_.predict(X_test.values)
+
+            acc = accuracy_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred)
+            print("test scores")
+            print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
+
+            #_____________________________________________________________________________
 
     def model_checking(self, n, scoring='f1'):
         X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
@@ -68,8 +384,8 @@ class EDAMultiFeatureBackend:
                   'sampling__k_neighbors': [5, 10],
                   'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(),
                                  BalancedRandomForestClassifier()],
-                  'classifier__n_estimators': [100, 300],
-                  'classifier__max_depth': [2, 3, 5]
+                  'classifier__n_estimators': [100, 200, 400,600],
+                  'classifier__max_depth': [2, 3, 5, 10]
                   }
         clf = GridSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
 
@@ -95,14 +411,15 @@ class EDAMultiFeatureBackend:
 
         pipe = Pipeline(steps=[
             ('sampling', SMOTE()),
-            ('classifier', ElasticNet())
+            ('classifier', LogisticRegression())
         ])
 
         params = {
                   'sampling': [SMOTE(), BorderlineSMOTE()],
                   'sampling__k_neighbors': [5, 10],
-                  "classifier__alpha": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
-                  "classifier__l1_ratio": np.arange(0.0, 1.0, 0.2)
+                  'classifier__penalty': ['l1'],
+                  "classifier__C": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+                #  "classifier__l1_ratio": np.arange(0.0, 1.0, 0.2)
                   }
         clf = GridSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
 
@@ -135,8 +452,8 @@ class EDAMultiFeatureBackend:
                                        SelectKBest(k=n), SelectFpr(alpha=1/n), SelectFdr(alpha=1/n)],
                   'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(scale_pos_weight=c),
                                  BalancedRandomForestClassifier()],
-                  'classifier__n_estimators': [100, 300],
-                  'classifier__max_depth': [2, 3, 5]
+                  'classifier__n_estimators': [100, 300, 500],
+                  'classifier__max_depth': [10, 3, 5]
                   }
         clf = RandomizedSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
 

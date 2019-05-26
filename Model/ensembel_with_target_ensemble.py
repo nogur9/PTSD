@@ -1,95 +1,158 @@
 from fancyimpute import IterativeImputer
+from imblearn.ensemble import BalancedRandomForestClassifier
+from imblearn.over_sampling import SMOTE, BorderlineSMOTE
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.feature_selection import RFE
-from sklearn.linear_model import Ridge, LogisticRegression
+from sklearn.feature_selection import RFE, SelectFpr, SelectKBest, SelectFdr
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 import numpy as np
-from sklearn.pipeline import Pipeline
+from imblearn.pipeline import Pipeline
 from xgboost import XGBClassifier, XGBRegressor
 from Model.model_object import Model
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import Ridge, LogisticRegression
+from feature_engineering.engineering import FeatureEngineering
 
-hypertension_features = [
-    'trait1', 'trait2', 'lot1', 'PCL1', 'PCL2', 'phq2',
-    'active_coping1', 'self_blame1',
-    'HL_MAOA', 'HML_FKBP5', 'highschool_diploma', 'T1Acc1n', 'T1Acc1t',
-    'q6.15_CONC_pcl1', 'q6.2_DREAM_pcl2',
-    'hypertention_pcl1', 'hypertention_pcl2', 'avoidance_pcl2', 'intrusion_pcl1', 'depression_pcl2'
-]
-avoidance_features = ['q6.1_INTRU_pcl1', 'q6.2_DREAM_pcl2', 'q6.3_FLASH_pcl2', 'q6.3_FLASH_pcl1',
-                      'q6.4_UPSET_pcl1', 'q6.14_ANGER_pcl1', 'q6.7_AVSIT_pcl1', 'q6.7_AVSIT_pcl2',
-                      'q6.11_NUMB_pcl1', 'q6.12_FUTRE_pcl2', 'q6.14_ANGER_pcl1',
-                      'avoidance_pcl1', 'avoidance_pcl2', 'depression_pcl1', 'intrusion_pcl1',
-                      'PCL_Broad2', 'PCL_Strict1', 'trait2'
-                      ]
+targets = {
+    'intrusion': 0,
+    'avoidance': 0,
+    'hypertension': 0,
+    'depression': 0,
+    'only_avoidance': 0,
+    'PCL_Strict3': 1,
+    'regression_cutoff_33': 0,
+    'regression_cutoff_50': 1,
+    'tred_cutoff': 0,
+}
 
-intrusion_features = ['trait1', 'q6.5_PHYS_pcl1', 'q6.14_ANGER_pcl2', 'state1', 'PCL1', 'phq1', 'self_distraction1',
-                      'hypertention_pcl2', 'venting1', 'PCL2', 'self_distraction2', 'behavioral_disengagement2',
-                      'q6.17_STRTL_pcl2', 'substance_use1', 'HML_NPY', 'venting2', 'behavioral_disengagement1',
-                      'ADHD', 'cd_risc1']
-regression_features = [
-    'q6.11_NUMB_pcl2', 'q6.13_SLEEP_pcl1', 'intrusion_pcl2', 'phq2',
-    'q6.1_INTRU_pcl2', 'PCL_Broad1', 'q6.14_ANGER_pcl2',
-    'phq1', 'q6.5_PHYS_pcl1', 'denial2'
-]
-depression_features = ['q6.1_INTRU_pcl1', 'q6.2_DREAM_pcl2', 'q6.3_FLASH_pcl2', 'q6.3_FLASH_pcl1',
-                       'q6.4_UPSET_pcl1', 'q6.14_ANGER_pcl1', 'q6.7_AVSIT_pcl1', 'q6.7_AVSIT_pcl2',
-                       'q6.11_NUMB_pcl1', 'q6.12_FUTRE_pcl2', 'q6.14_ANGER_pcl1',
-                       'avoidance_pcl1', 'avoidance_pcl2', 'depression_pcl1', 'intrusion_pcl1',
-                       'PCL_Broad2', 'PCL_Strict1', 'trait2'
-                       ]
-
+pipeline_per_target = {
+    'intrusion':
+        Pipeline(steps=[
+            ('feature_selection', SelectFpr(alpha=0.05)),
+            ('sampling', BorderlineSMOTE(k_neighbors=10)),
+            ('classifier', XGBClassifier(n_estimators=300, max_depth=5))]),
+    'avoidance':
+        Pipeline(steps=[
+                ('feature_selection',  RFE(estimator=XGBClassifier(scale_pos_weight=5.88, n_estimators=100),
+                                           n_features_to_select=20)),
+                ('classifier', BalancedRandomForestClassifier(n_estimators=300, max_depth=10))]),
+    'hypertension':
+        Pipeline(steps=[
+            ('feature_selection', RFE(estimator=XGBClassifier(n_estimators=100, scale_pos_weight=3.51),
+                                      n_features_to_select=20)),
+            ('sampling', SMOTE(k_neighbors=10)),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=100))]),
+    'depression':
+        Pipeline(steps=[
+            ('feature_selection', SelectFdr(alpha=0.1)),
+            ('sampling', SMOTE(k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100))]),
+    'only_avoidance':
+        Pipeline(steps=[
+            ('feature_selection', RFE(XGBClassifier(n_estimators=100, max_depth=3), n_features_to_select=10)),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=500, max_depth=10))]),
+    'PCL_Strict3':
+        Pipeline(steps=[
+            ('feature_selection', SelectKBest(k=20)),
+            ('sampling', SMOTE(k_neighbors=5)),
+            ('classifier', XGBClassifier(max_depth=3, n_estimators=100))]),
+    'regression_cutoff_33':
+        Pipeline(steps=[
+            ('feature_selection', SelectFpr(alpha=0.033)),
+            ('sampling', SMOTE(k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=5))]),
+    'regression_cutoff_50':
+        Pipeline(steps=[
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', SMOTE(k_neighbors=10)),
+            ('classifier', XGBClassifier(max_depth=2, n_estimators=100))]),
+    'tred_cutoff':
+        Pipeline(steps=[
+            ('feature_selection', SelectKBest(k=20)),
+            ('sampling', SMOTE(k_neighbors=10)),
+            ('classifier', XGBClassifier(n_estimators=100, max_depth=2))])
+}
 class TargetEnsembler(object):
-    rfe = 5
-    n_estimators = 500
 
-    def __init__(self, intrusion_features, avoidance_features, hypertension_features, regression_features):
-        print("self.n_estimators", self.n_estimators, "\nself.rfe", self.rfe)
-        self.intrusion_features, self.avoidance_features, self.hypertension_features, self.regression_features = \
-            intrusion_features, avoidance_features, hypertension_features, regression_features
+    def __init__(self, features):
+        self.features = features
 
     def fit(self, X_train, y_train):
-        # intrusion
-        X_intrusion = X_train[self.intrusion_features].values
-        y_intrusion = X_train["intrusion_cutoff"].apply(lambda x: int(x))
-        self.pipe_intrusion = Pipeline(steps=[
-           ('rfe',  RFE(XGBClassifier(n_estimators=self.n_estimators, reg_alpha=1, scale_pos_weight=3), self.rfe)),
-            ('classifier', XGBClassifier(n_estimators=self.n_estimators, reg_alpha=1, scale_pos_weight=3))])
-        self.pipe_intrusion.fit(X_intrusion, y_intrusion)
-        scores = cross_val_score(self.pipe_intrusion, X_intrusion, y_intrusion, scoring='precision', cv=StratifiedKFold(5))
-        print(f"intrusion {sum(scores)/5}")
-        self.pipe_intrusion.fit(X_intrusion, y_intrusion)
 
-        # avoidance
-        X_avoidance = X_train[self.avoidance_features].values
-        y_avoidance = X_train["avoidance_cutoff"].apply(lambda x: int(x))
-        self.pipe_avoidance = Pipeline(steps=[
-            ('rfe', RFE(XGBClassifier(n_estimators=self.n_estimators, reg_alpha=1, scale_pos_weight=6), self.rfe)),
-            ('classifier', XGBClassifier(n_estimators=self.n_estimators, reg_alpha=1, scale_pos_weight=6))])
-        self.pipe_avoidance.fit(X_avoidance, y_avoidance)
-        scores = cross_val_score(self.pipe_avoidance, X_avoidance, y_avoidance, scoring='precision', cv=StratifiedKFold(5))
-        print(f"avoidance {sum(scores)/5}")
-        self.pipe_avoidance.fit(X_avoidance, y_avoidance)
+        # create list of targets
 
-        # hypertension
-        X_hypertension = X_train[self.hypertension_features].values
-        y_hypertention = X_train["hypertention_cutoff"].apply(lambda x: int(x))
-        self.pipe_hypertension = Pipeline(steps=[
-            ('rfe', RFE(XGBClassifier(n_estimators=self.n_estimators, reg_alpha=1, scale_pos_weight=4), self.rfe)),
-            ('classifier', XGBClassifier(n_estimators=self.n_estimators, reg_alpha=1, scale_pos_weight=4))])
-        self.pipe_hypertension.fit(X_hypertension, y_hypertention)
-        scores = cross_val_score(self.pipe_hypertension, X_hypertension, y_hypertention, scoring='precision', cv=StratifiedKFold(5))
-        print(f"hypertension {sum(scores)/5}")
-        self.pipe_hypertension.fit(X_hypertension, y_hypertention)
+        # self.pipelines_list = []
+        # self.preds = []
+        # for i in targets :
+        #  x. feature engineering (i)
+        # y = df[i]
+        # cv_scores  (x, y, pipeline_per_target[i])
+        # model = pipeline_per_target[i].train(x, y)
+        # pipelines_list.append(model)
+        # preds.append(model.pred(x))
 
-        # regression
-        X_regression = X_train[self.regression_features].values
-        y_regression = X_train["PCL3"]
-        self.pipe_regression = Pipeline(steps=[
-            ('classifier', Ridge())])
-        self.pipe_regression.fit(X_regression, y_regression)
+        # y = df[y]
+        # combined_model = LogReg.train(preds, y)
+        # print results....
+
+        # def pred(X):
+        #
+        if intrusion:
+            y_pred_intrusion = self.pipe_intrusion.predict(X_intrusion)
+        else:
+            y_pred_intrusion = 1
+
+        if avoidance:
+            y_pred_avoidance = self.pipe_avoidance.predict(X_avoidance)
+        else:
+            y_pred_avoidance = 1
+
+        if hypertension:
+            y_pred_hypertension = self.pipe_hypertension.predict(X_hypertension)
+        else:
+            y_pred_hypertension = 1
+
+        if depression:
+            y_pred_depression = self.pipe_depression.predict(X_depression)
+        else:
+            y_pred_depression = 1
+
+        if only_avoidance:
+            y_pred_only_avoidance = self.pipe_only_avoidance.predict(X_only_avoidance)
+        else:
+            y_pred_only_avoidance = 1
+
+        if PCL_Strict3:
+            y_pred_PCL_Strict3 = self.pipe_PCL_Strict3.predict(X_PCL_Strict3)
+        else:
+            y_pred_PCL_Strict3 = 1
+
+        if regression_cutoff_33:
+            y_pred_regression_cutoff_33 = self.pipe_regression_cutoff_33.predict(X_regression_cutoff_33)
+        else:
+            y_pred_regression_cutoff_33 = 1
+
+        if regression_cutoff_50:
+            y_pred_regression_cutoff_50 = self.pipe_regression_cutoff_50.predict(X_regression_cutoff_50)
+        else:
+            y_pred_regression_cutoff_50 = 1
+
+        if tred_cutoff:
+            y_pred_tred_cutoff = self.pipe_tred_cutoff.predict(X_tred_cutoff)
+        else:
+            y_pred_tred_cutoff = 1
+
+        y_pred = (y_pred_hypertension & y_pred_avoidance & y_pred_intrusion & y_pred_depression &
+                  y_pred_only_avoidance & y_pred_PCL_Strict3 & y_pred_regression_cutoff_33 &
+                  y_pred_regression_cutoff_50 & y_pred_tred_cutoff)
+        y_target = y_train
+
+        acc = accuracy_score(y_target, y_pred)
+        f1 = f1_score(y_target, y_pred)
+        recall = recall_score(y_target, y_pred)
+        precision = precision_score(y_target, y_pred)
+        print("training scores")
+        print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
 
         # combined
         y_pred_hypertension = self.pipe_hypertension.predict(X_hypertension)
@@ -111,23 +174,74 @@ class TargetEnsembler(object):
         print(f"hypertension {sum(scores)/5}")
         self.pipe_combined.fit(X_combined, y_combined)
 
-
     def predict(self, X_test):
-        ## combine three classifiers
-        X_test_hypertension = X_test[self.hypertension_features].values
-        X_test_avoidance = X_test[self.avoidance_features].values
-        X_test_intrusion = X_test[self.intrusion_features].values
-        X_test_regression = X_test[self.regression_features].values
 
-        y_pred_hypertension = self.pipe_hypertension.predict(X_test_hypertension)
-        y_pred_avoidance = self.pipe_avoidance.predict(X_test_avoidance)
-        y_pred_intrusion = self.pipe_intrusion.predict(X_test_intrusion)
-        y_pred_regression = self.pipe_regression.predict(X_test_regression)
+        if intrusion:
+            X_test_intrusion_cutoff = FeatureEngineering(X_test[self.features],
+                                                         "intrusion_cutoff").engineer_features().values
+            y_pred_intrusion = self.pipe_intrusion.predict(X_test_intrusion_cutoff)
+        else:
+            y_pred_intrusion = 1
 
-        X_test["y_pred_hypertension"] = y_pred_hypertension
-        X_test["y_pred_avoidance"] = y_pred_avoidance
-        X_test["y_pred_intrusion"] = y_pred_intrusion
-        X_test["y_pred_regression"] = y_pred_regression
+        if avoidance:
+            X_test_avoidance_cutoff = FeatureEngineering(X_test[self.features],
+                                                         "avoidance_cutoff").engineer_features().values
+            y_pred_avoidance = self.pipe_avoidance.predict(X_test_avoidance_cutoff)
+        else:
+            y_pred_avoidance = 1
+
+        if hypertension:
+            X_test_hypertention_cutoff = FeatureEngineering(X_test[self.features],
+                                                            "hypertention_cutoff").engineer_features().values
+            y_pred_hypertension = self.pipe_hypertension.predict(X_test_hypertention_cutoff)
+        else:
+            y_pred_hypertension = 1
+
+        if depression:
+            X_test_depression_cutoff = FeatureEngineering(X_test[self.features],
+                                                          "depression_cutoff").engineer_features().values
+            y_pred_depression = self.pipe_depression.predict(X_test_depression_cutoff)
+        else:
+            y_pred_depression = 1
+
+        if only_avoidance:
+            X_test_only_avoidance_cutoff = FeatureEngineering(X_test[self.features],
+                                                              "only_avoidance_cutoff").engineer_features().values
+
+            y_pred_only_avoidance = self.pipe_only_avoidance.predict(X_test_only_avoidance_cutoff)
+        else:
+            y_pred_only_avoidance = 1
+
+        if PCL_Strict3:
+            X_test_PCL_Strict3 = FeatureEngineering(X_test[self.features], "PCL_Strict3").engineer_features().values
+            y_pred_PCL_Strict3 = self.pipe_PCL_Strict3.predict(X_test_PCL_Strict3)
+        else:
+            y_pred_PCL_Strict3 = 1
+
+        if regression_cutoff_33:
+            X_test_regression_cutoff_33 = FeatureEngineering(X_test[self.features],
+                                                             "regression_cutoff_33").engineer_features().values
+            y_pred_regression_cutoff_33 = self.pipe_regression_cutoff_33.predict(X_test_regression_cutoff_33)
+        else:
+            y_pred_regression_cutoff_33 = 1
+
+        if regression_cutoff_50:
+            X_test_regression_cutoff_50 = FeatureEngineering(X_test[self.features],
+                                                             "regression_cutoff_50").engineer_features().values
+            y_pred_regression_cutoff_50 = self.pipe_regression_cutoff_50.predict(X_test_regression_cutoff_50)
+        else:
+            y_pred_regression_cutoff_50 = 1
+
+        if tred_cutoff:
+            X_test_tred_cutoff = FeatureEngineering(X_test[self.features], "tred_cutoff").engineer_features().values
+            y_pred_tred_cutoff = self.pipe_tred_cutoff.predict(X_test_tred_cutoff)
+        else:
+            y_pred_tred_cutoff = 1
+
+        y_pred = (y_pred_hypertension & y_pred_avoidance & y_pred_intrusion & y_pred_depression &
+                  y_pred_only_avoidance & y_pred_PCL_Strict3 & y_pred_regression_cutoff_33 &
+                  y_pred_regression_cutoff_50 & y_pred_tred_cutoff)
+
         preds = ["y_pred_hypertension", "y_pred_avoidance", "y_pred_intrusion", "y_pred_regression"]
 
         X_combined = X_test[['q6.11_NUMB_pcl2', 'q6.13_SLEEP_pcl1', 'intrusion_pcl2', 'phq2'] + preds].values
@@ -137,16 +251,13 @@ class TargetEnsembler(object):
 
 
 def cv(X_train, y_train):
-
     kfold = StratifiedKFold(n_splits=10, shuffle=True)
 
     scores_f = []
     scores_p = []
     scores_r = []
 
-
     for train, test in kfold.split(X_train, y_train):
-
         model = TargetEnsembler(intrusion_features, avoidance_features, hypertension_features, regression_features)
         X_train_cv = pd.DataFrame(X_train.values[train], columns=X_train.columns)
         y_train_cv = pd.DataFrame(y_train.values[train], columns=["PCL_Strict3"])
@@ -170,7 +281,8 @@ def cv(X_train, y_train):
     print("mean scores p", np.mean(scores_p))
     print("mean scores r", np.mean(scores_r))
 
-def runner ():
+
+def runner():
     m = Model()
     X = m.df.drop("PCL_Strict3", axis=1)
     Y = m.df["PCL_Strict3"]
@@ -187,5 +299,6 @@ def runner ():
     print("test f1", s_f)
     print("test recall", s_r)
     print("test precision", s_p)
+
 
 runner()

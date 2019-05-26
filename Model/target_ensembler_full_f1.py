@@ -13,26 +13,23 @@ import pandas as pd
 from sklearn.linear_model import Ridge, LogisticRegression
 from feature_engineering.engineering import FeatureEngineering
 
-
 intrusion = 0
 
-# avoidance sucks
 avoidance = 0
 
 hypertension = 0
 
+depression = 0
 
-depression = 1
+only_avoidance = 0
 
-only_avoidance = 1
-
-PCL_Strict3 = 0
+PCL_Strict3 = 1
 
 regression_cutoff_33 = 0
 
-regression_cutoff_50 = 0
+regression_cutoff_50 = 1
 
-tred_cutoff = 0
+tred_cutoff = 1
 
 
 class TargetEnsembler(object):
@@ -52,7 +49,7 @@ class TargetEnsembler(object):
                 ('sampling', BorderlineSMOTE(k_neighbors=10)),
                 ('classifier', XGBClassifier(n_estimators=300, max_depth=5))])
 
-            scores = cross_val_score(self.pipe_intrusion, X_intrusion, y_intrusion, scoring='precision',
+            scores = cross_val_score(self.pipe_intrusion, X_intrusion, y_intrusion, scoring='f1',
                                      cv=StratifiedKFold(5))
             print(f"intrusion {sum(scores)/5}")
             self.pipe_intrusion.fit(X_intrusion, y_intrusion)
@@ -64,10 +61,10 @@ class TargetEnsembler(object):
 
             self.pipe_avoidance = Pipeline(steps=[
                 ('feature_selection',  RFE(estimator=XGBClassifier(scale_pos_weight=5.88, n_estimators=100),
-                                           n_features_to_select=30)),
-                ('classifier', RandomForestClassifier(n_estimators=500, max_depth=5))])
+                                           n_features_to_select=20)),
+                ('classifier', BalancedRandomForestClassifier(n_estimators=300, max_depth=10))])
 
-            scores = cross_val_score(self.pipe_avoidance, X_avoidance, y_avoidance, scoring='precision',
+            scores = cross_val_score(self.pipe_avoidance, X_avoidance, y_avoidance, scoring='f1',
                                      cv=StratifiedKFold(5))
             print(f"avoidance {sum(scores)/5}")
             self.pipe_avoidance.fit(X_avoidance, y_avoidance)
@@ -79,10 +76,11 @@ class TargetEnsembler(object):
 
             self.pipe_hypertension = Pipeline(steps=[
                 ('feature_selection',  RFE(estimator=XGBClassifier(n_estimators=100, scale_pos_weight=3.51),
-                                           n_features_to_select=30)),
-                ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))])
+                                           n_features_to_select=20)),
+                ( 'sampling', SMOTE(k_neighbors=10)),
+                ('classifier', BalancedRandomForestClassifier(n_estimators=100))])
 
-            scores = cross_val_score(self.pipe_hypertension, X_hypertension, y_hypertention, scoring='precision',
+            scores = cross_val_score(self.pipe_hypertension, X_hypertension, y_hypertention, scoring='f1',
                                      cv=StratifiedKFold(5))
             print(f"hypertension {sum(scores)/5}")
             self.pipe_hypertension.fit(X_hypertension, y_hypertention)
@@ -93,10 +91,11 @@ class TargetEnsembler(object):
             y_depression = X_train["depression_cutoff"].apply(lambda x: int(x))
 
             self.pipe_depression = Pipeline(steps=[
-                ('feature_selection', SelectFdr(alpha=0.033)),
-                ('classifier', RandomForestClassifier(n_estimators=500, max_depth=10))])
+                ('feature_selection', SelectFdr(alpha=0.1)),
+                ('sampling', SMOTE(k_neighbors=5)),
+                ('classifier', RandomForestClassifier(n_estimators=100))])
 
-            scores = cross_val_score(self.pipe_depression, X_depression, y_depression, scoring='precision',
+            scores = cross_val_score(self.pipe_depression, X_depression, y_depression, scoring='f1',
                                      cv=StratifiedKFold(5))
             print(f"depression {sum(scores)/5}")
             self.pipe_depression.fit(X_depression, y_depression)
@@ -107,12 +106,11 @@ class TargetEnsembler(object):
             y_only_avoidance = X_train["only_avoidance_cutoff"].apply(lambda x: int(x))
 
             self.pipe_only_avoidance = Pipeline(steps=[
-                ('feature_selection', SelectFdr(alpha=0.033)),
-                ('sampling', BorderlineSMOTE(k_neighbors=5)),
-                ('classifier', RandomForestClassifier( n_estimators=100, max_depth=5))])
+                ('feature_selection', RFE(XGBClassifier(n_estimators=100,max_depth=3), n_features_to_select=10)),
+                ('classifier', BalancedRandomForestClassifier( n_estimators=500, max_depth=10))])
 
             scores = cross_val_score(self.pipe_only_avoidance, X_only_avoidance,
-                                     y_only_avoidance, scoring='precision', cv=StratifiedKFold(5))
+                                     y_only_avoidance, scoring='f1', cv=StratifiedKFold(5))
             print(f"only_avoidance {sum(scores)/5}")
             self.pipe_only_avoidance.fit(X_only_avoidance, y_only_avoidance)
 
@@ -122,11 +120,12 @@ class TargetEnsembler(object):
             y_PCL_Strict3 = y_train["PCL_Strict3"].apply(lambda x: int(x))
 
             self.pipe_PCL_Strict3 = Pipeline(steps=[
-                ('sampling', BorderlineSMOTE(k_neighbors=5)),
-                ('classifier', LogisticRegression(C=100, penalty='l1'))])
+                ('feature_selection', SelectKBest(k=20)),
+                ('sampling', SMOTE(k_neighbors=5)),
+                ('classifier', XGBClassifier(max_depth=3, n_estimators=100))])
 
             scores = cross_val_score(self.pipe_PCL_Strict3, X_PCL_Strict3,
-                                     y_PCL_Strict3, scoring='precision', cv=StratifiedKFold(5))
+                                     y_PCL_Strict3, scoring='f1', cv=StratifiedKFold(5))
             print(f"PCL_Strict3 {sum(scores)/5}")
             self.pipe_PCL_Strict3.fit(X_PCL_Strict3, y_PCL_Strict3)
 
@@ -138,12 +137,12 @@ class TargetEnsembler(object):
             y_regression_cutoff_33 = X_train["regression_cutoff_33"].apply(lambda x: int(x))
 
             self.pipe_regression_cutoff_33 = Pipeline(steps=[
-                ('feature_selection', RFE(estimator=XGBClassifier(n_estimators=100, max_depth=3),
-                                          n_features_to_select=30)),
-                ('classifier', RandomForestClassifier(n_estimators=500, max_depth=3))])
+                ('feature_selection', SelectFpr(alpha=0.033)),
+                ('sampling', SMOTE(k_neighbors=10)),
+                ('classifier', RandomForestClassifier(n_estimators=100, max_depth=5))])
 
             scores = cross_val_score(self.pipe_regression_cutoff_33, X_regression_cutoff_33,
-                                     y_regression_cutoff_33, scoring='precision', cv=StratifiedKFold(5))
+                                     y_regression_cutoff_33, scoring='f1', cv=StratifiedKFold(5))
             print(f"regression_cutoff_33 {sum(scores)/5}")
             self.pipe_regression_cutoff_33.fit(X_regression_cutoff_33, y_regression_cutoff_33)
 
@@ -153,12 +152,12 @@ class TargetEnsembler(object):
             y_regression_cutoff_50 = X_train["regression_cutoff_50"].apply(lambda x: int(x))
 
             self.pipe_regression_cutoff_50 = Pipeline(steps=[
-                ('feature_selection', SelectFdr(alpha=0.1)),
-                ('sampling', BorderlineSMOTE(k_neighbors=10)),
-                ('classifier', XGBClassifier(max_depth=3, n_estimators=500))])
+                ('feature_selection', SelectKBest(k=10)),
+                ('sampling', SMOTE(k_neighbors=10)),
+                ('classifier', XGBClassifier(max_depth=2, n_estimators=100))])
 
             scores = cross_val_score(self.pipe_regression_cutoff_50, X_regression_cutoff_50,
-                                     y_regression_cutoff_50, scoring='precision', cv=StratifiedKFold(5))
+                                     y_regression_cutoff_50, scoring='f1', cv=StratifiedKFold(5))
             print(f"regression_cutoff_50 {sum(scores)/5}")
             self.pipe_regression_cutoff_50.fit(X_regression_cutoff_50, y_regression_cutoff_50)
 
@@ -168,10 +167,11 @@ class TargetEnsembler(object):
             y_tred_cutoff = X_train["tred_cutoff"].apply(lambda x: int(x))
 
             self.pipe_tred_cutoff = Pipeline(steps=[
-                ('feature_selection', SelectFdr(alpha=0.1)),
-                ('classifier', RandomForestClassifier(n_estimators=300, max_depth=10))])
+                ('feature_selection', SelectKBest(k=20)),
+                ('sampling', SMOTE(k_neighbors=10)),
+                ('classifier', XGBClassifier(n_estimators=100, max_depth=2))])
 
-            scores = cross_val_score(self.pipe_tred_cutoff, X_tred_cutoff, y_tred_cutoff, scoring='precision',
+            scores = cross_val_score(self.pipe_tred_cutoff, X_tred_cutoff, y_tred_cutoff, scoring='f1',
                                      cv=StratifiedKFold(5))
             print(f"tred_cutoff {sum(scores)/5}")
             self.pipe_tred_cutoff.fit(X_tred_cutoff, y_tred_cutoff)

@@ -11,7 +11,7 @@ from sklearn.neighbors import KNeighborsClassifier
 #.EDASingleFeatureBackend, EDA_backend.EDAMultiFeatureBackend
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-mew = 0
+mew = 1
 class Model:
 
     features = ["age", "highschool_diploma", "dyslexia", "ADHD", "T1Acc1t", "T1Acc1n", "T1bias", "phq1", "lot1",
@@ -87,186 +87,260 @@ class Model:
         self.y_test =y_test
         self.df = df
 
+    def test_models_for_targets(self):
+        targets = {
+            'intrusion': 0,
+            'avoidance': 0,
+            'hypertension': 0,
+            'depression': 0,
+            'only_avoidance': 0,
+            'PCL_Strict3': 1,
+            'regression_cutoff_33': 0,
+            'regression_cutoff_50': 1,
+            'tred_cutoff': 0
+        }
+        targets_list = [i for i in targets if targets[i] == 1]
+
+        n_features = [5]#, 10, 20, 30]
+        for target in targets_list:
+            print("\n\n\n intrusion_cutoff \n")
+            multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
+
+            for n in n_features:
+                print("\n intrusion_cutoff with resample\nn=10")
+                multiple_features_eda.model_selection_by_grid_search()
+                #print("\n intrusion_cutoff without resample\nn=10")
+                #multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
     def test_algorithms_for_trget_intrusion(self):
-        f = ['trait1', 'q6.5_PHYS_pcl1', 'q6.14_ANGER_pcl2', 'state1', 'PCL1', 'phq1', 'self_distraction1',
-                    'hypertention_pcl2', 'venting1', 'PCL2', 'self_distraction2', 'behavioral_disengagement2',
-                    'q6.17_STRTL_pcl2', 'substance_use1',  'HML_NPY', 'venting2', 'behavioral_disengagement1',
-             'ADHD', 'cd_risc1']  # 19
-        print("\n\n\n intrusion \n")
+        print("precision score")
+        print("\n\n\n intrusion_cutoff \n")
         target = "intrusion_cutoff"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n intrusion_cutoff with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        multiple_features_eda.model_checking(10, scoring='precision')
         print("\n intrusion_cutoff without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n intrusion_cutoff with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        multiple_features_eda.model_checking(20, scoring='precision')
         print("\n intrusion_cutoff without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
+
+        print("\n intrusion_cutoff with resample\nn=30")
+        multiple_features_eda.model_checking(30, scoring='precision')
+        print("\n intrusion_cutoff without resample\nn=30")
+        multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        print("intrusion_cutoff logreg f1 score")
+        multiple_features_eda.logistic_regression_grid_search()
+        print("intrusion_cutoff logreg precision score")
+        multiple_features_eda.logistic_regression_grid_search(scoring='precision')
 
 
     def test_algorithms_for_trget_avoidance(self):
-        print("\n avoidance with resample\n")
-        f = ['q6.1_INTRU_pcl1', 'q6.2_DREAM_pcl2', 'q6.3_FLASH_pcl2','q6.3_FLASH_pcl1',
-             'q6.4_UPSET_pcl1', 'q6.14_ANGER_pcl1', 'q6.7_AVSIT_pcl1', 'q6.7_AVSIT_pcl2',
-             'q6.11_NUMB_pcl1', 'q6.12_FUTRE_pcl2', 'q6.14_ANGER_pcl1',
-             'avoidance_pcl1', 'avoidance_pcl2', 'depression_pcl1', 'intrusion_pcl1',
-             'PCL_Broad2', 'PCL_Strict1','trait2'
-             ]  # 18
-
-
-
+        print("precision score")
+        print("\n\n\n avoidance_cutoff \n")
         target = "avoidance_cutoff"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n avoidance_cutoff with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        multiple_features_eda.model_checking(10, scoring='precision')
         print("\n avoidance_cutoff without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n avoidance_cutoff with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        multiple_features_eda.model_checking(20, scoring='precision')
         print("\n avoidance_cutoff without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
+
+        print("\n avoidance_cutoff with resample\nn=30")
+        multiple_features_eda.model_checking(30, scoring='precision')
+        print("\n avoidance_cutoff without resample\nn=30")
+        multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        print("avoidance_cutoff logreg f1 score")
+        multiple_features_eda.logistic_regression_grid_search()
+        print("avoidance_cutoff logreg precision score")
+        multiple_features_eda.logistic_regression_grid_search(scoring='precision')
 
 
 
     def test_algorithms_for_trget_hypertension(self):
+        print("precision score")
         print("\n\n\n hypertention_cutoff \n")
-        f = [
-            'trait1', 'trait2', 'lot1', 'PCL1', 'PCL2', 'phq2',
-             'active_coping1',  'self_blame1',
-              'HL_MAOA', 'HML_FKBP5', 'highschool_diploma', 'T1Acc1n', 'T1Acc1t',
-             'q6.15_CONC_pcl1', 'q6.2_DREAM_pcl2',
-             'hypertention_pcl1', 'hypertention_pcl2', 'avoidance_pcl2', 'intrusion_pcl1', 'depression_pcl2'
-                ] #20
         target = "hypertention_cutoff"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n hypertention_cutoff with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        multiple_features_eda.model_checking(10, scoring='precision')
         print("\n hypertention_cutoff without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n hypertention_cutoff with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        multiple_features_eda.model_checking(20, scoring='precision')
         print("\n hypertention_cutoff without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
 
         print("\n hypertention_cutoff with resample\nn=30")
-        multiple_features_eda.model_checking(30)
+        multiple_features_eda.model_checking(30, scoring='precision')
         print("\n hypertention_cutoff without resample\nn=30")
-        multiple_features_eda.model_checking_without_resampling(30)
+        multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        print("hypertention_cutoff logreg f1 score")
+        multiple_features_eda.logistic_regression_grid_search()
+        print("hypertention_cutoff logreg precision score")
+        multiple_features_eda.logistic_regression_grid_search(scoring='precision')
+
 
     def test_algorithms_for_target_depression(self):
-        print("\n\n\n depression \n")
+        print("precision score")
+        print("\n\n\n depression_cutoff \n")
         target = "depression_cutoff"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n depression_cutoff with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        multiple_features_eda.model_checking(10, scoring='precision')
         print("\n depression_cutoff without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n depression_cutoff with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        multiple_features_eda.model_checking(20, scoring='precision')
         print("\n depression_cutoff without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
 
         print("\n depression_cutoff with resample\nn=30")
-        multiple_features_eda.model_checking(30)
+        multiple_features_eda.model_checking(30, scoring='precision')
         print("\n depression_cutoff without resample\nn=30")
-        multiple_features_eda.model_checking_without_resampling(30)
+        multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        print("depression_cutoff logreg f1 score")
+        multiple_features_eda.logistic_regression_grid_search()
+        print("depression_cutoff logreg precision score")
+        multiple_features_eda.logistic_regression_grid_search(scoring='precision')
 
     def test_algorithms_for_target_diagnosis(self):
+        print("precision score")
         print("\n\n\n diagnosis \n")
         target = "diagnosis"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n diagnosis with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        multiple_features_eda.model_checking(10, scoring='precision')
         print("\n diagnosis without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n diagnosis with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        multiple_features_eda.model_checking(20, scoring='precision')
         print("\n diagnosis without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
 
         print("\n diagnosis with resample\nn=30")
-        multiple_features_eda.model_checking(30)
+        multiple_features_eda.model_checking(30, scoring='precision')
         print("\n diagnosis without resample\nn=30")
-        multiple_features_eda.model_checking_without_resampling(30)
+        multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        # print("diagnosis logreg f1 score")
+        # multiple_features_eda.logistic_regression_grid_search()
+        # print("diagnosis logreg precision score")
+        # multiple_features_eda.logistic_regression_grid_search(scoring='precision')
 
 
     def test_algorithms_for_target_only_avoidance_cutoff(self):
+        print("precision score")
         print("\n\n\n only_avoidance_cutoff \n")
         target = "only_avoidance_cutoff"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n only_avoidance_cutoff with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        #multiple_features_eda.model_checking(10, scoring='precision')
         print("\n only_avoidance_cutoff without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        #multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n only_avoidance_cutoff with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        #multiple_features_eda.model_checking(20, scoring='precision')
         print("\n only_avoidance_cutoff without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        #multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
 
         print("\n only_avoidance_cutoff with resample\nn=30")
-        multiple_features_eda.model_checking(30)
+        #multiple_features_eda.model_checking(30, scoring='precision')
         print("\n only_avoidance_cutoff without resample\nn=30")
-        multiple_features_eda.model_checking_without_resampling(30)
+        #multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        print("only_avoidance_cutoff logreg f1 score")
+        multiple_features_eda.logistic_regression_grid_search()
+        print("only_avoidance_cutoff logreg precision score")
+        multiple_features_eda.logistic_regression_grid_search(scoring='precision')
 
     def test_algorithms_for_target_regression_cutoff_33(self):
+        print("precision score")
         print("\n\n\n regression_cutoff_33 \n")
         target = "regression_cutoff_33"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n regression_cutoff_33 with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        #multiple_features_eda.model_checking(10, scoring='precision')
         print("\n regression_cutoff_33 without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        #multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n regression_cutoff_33 with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        #multiple_features_eda.model_checking(20, scoring='precision')
         print("\n regression_cutoff_33 without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        #multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
 
         print("\n regression_cutoff_33 with resample\nn=30")
-        multiple_features_eda.model_checking(30)
+        #multiple_features_eda.model_checking(30, scoring='precision')
         print("\n regression_cutoff_33 without resample\nn=30")
-        multiple_features_eda.model_checking_without_resampling(30)
+        #multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        print("regression_cutoff_33 logreg f1 score")
+        multiple_features_eda.logistic_regression_grid_search()
+        print("regression_cutoff_33 logreg precision score")
+        multiple_features_eda.logistic_regression_grid_search(scoring='precision')
 
     def test_algorithms_for_target_regression_cutoff_50(self):
+        print("precision score")
         print("\n\n\n regression_cutoff_50 \n")
         target = "regression_cutoff_50"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n regression_cutoff_50 with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        #multiple_features_eda.model_checking(10, scoring='precision')
         print("\n regression_cutoff_50 without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        #multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n regression_cutoff_50 with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        #multiple_features_eda.model_checking(20, scoring='precision')
         print("\n regression_cutoff_50 without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        #multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
+
+        print("\n regression_cutoff_50 with resample\nn=30")
+        #multiple_features_eda.model_checking(30, scoring='precision')
+        print("\n regression_cutoff_50 without resample\nn=30")
+        #multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        print("regression_cutoff_50 logreg f1 score")
+        multiple_features_eda.logistic_regression_grid_search()
+        print("regression_cutoff_50 logreg precision score")
+        multiple_features_eda.logistic_regression_grid_search(scoring='precision')
 
     def test_algorithms_for_target_tred_cutoff(self):
+        print("precision score")
         print("\n\n\n tred_cutoff \n")
         target = "tred_cutoff"
         multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
         print("\n tred_cutoff with resample\nn=10")
-        multiple_features_eda.model_checking(10)
+        #multiple_features_eda.model_checking(10, scoring='precision')
         print("\n tred_cutoff without resample\nn=10")
-        multiple_features_eda.model_checking_without_resampling(10)
+        #multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
 
         print("\n tred_cutoff with resample\nn=20")
-        multiple_features_eda.model_checking(20)
+        #multiple_features_eda.model_checking(20, scoring='precision')
         print("\n tred_cutoff without resample\nn=20")
-        multiple_features_eda.model_checking_without_resampling(20)
+        #multiple_features_eda.model_checking_without_resampling(20, scoring='precision')
 
         print("\n tred_cutoff with resample\nn=30")
-        multiple_features_eda.model_checking(30)
+        #multiple_features_eda.model_checking(30, scoring='precision')
         print("\n tred_cutoff without resample\nn=30")
-        multiple_features_eda.model_checking_without_resampling(30)
+        #multiple_features_eda.model_checking_without_resampling(30, scoring='precision')
+
+        print("tred_cutoff logreg f1 score")
+        multiple_features_eda.logistic_regression_grid_search()
+        print("tred_cutoff logreg precision score")
+        multiple_features_eda.logistic_regression_grid_search(scoring='precision')
 
 
     def test_algorithms_for_target_regression(self):
@@ -335,8 +409,10 @@ if not mew:
     #eda.test_algorithms_for_trget_intrusion()
     #eda.test_algorithms_for_target_depression()
     #eda.test_algorithms_for_target_diagnosis()
-    eda.test_algorithms_for_target_regression_cutoff_33()
+    #eda.test_algorithms_for_target_regression_cutoff_33()
     #eda.test_algorithms_for_target_regression_cutoff_50()
-    #eda.test_algorithms_for_target_only_avoidance_cutoff()
+    #eda.test_algorithms_for_target_only_avoidance_cutoff()#VX
     #eda.test_algorithms_for_target_tred_cutoff()
     #eda.single_feature_analysis()
+    eda.test_models_for_targets()
+
