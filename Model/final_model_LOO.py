@@ -1,5 +1,5 @@
 from fancyimpute import IterativeImputer
-from imblearn.ensemble import BalancedRandomForestClassifier, BalancedBaggingClassifier
+from imblearn.ensemble import BalancedRandomForestClassifier
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.feature_selection import RFE, SelectFpr, SelectKBest, SelectFdr
@@ -7,7 +7,6 @@ from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_sc
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 import numpy as np
 from imblearn.pipeline import Pipeline
-from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from xgboost import XGBClassifier, XGBRegressor
@@ -33,49 +32,66 @@ targets_dict = {
 pipeline_per_target = {
     'intrusion_cutoff':
         Pipeline(steps=[
-            ('classifier', BalancedRandomForestClassifier(max_depth=3, n_estimators=400))
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', SMOTE(k_neighbors=10)),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7))
         ]),
     'avoidance_cutoff':
         Pipeline(steps=[
             ('scaling', StandardScaler()),
-            ('sampling', BorderlineSMOTE(k_neighbors=10)),
-            ('classifier', MLPClassifier(hidden_layer_sizes=(10, 10)))
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE()),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7))
         ]),
     'hypertention_cutoff':
         Pipeline(steps=[
-            ('classifier', XGBClassifier(scale_pos_weight=3.511, max_depth=7, n_estimators=400))
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=3.5, reg_alpha=1), n_features_to_select=10)),
+            ('sampling', SMOTE(k_neighbors=5)),
+            ('classifier', SVC(C=0.5, kernel='linear'))
         ]),
     'depression_cutoff':
         Pipeline(steps=[
             ('scaling', StandardScaler()),
-            ('sampling', BorderlineSMOTE(k_neighbors=10)),
-            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(k_neighbors=5)),
+            ('classifier', RandomForestClassifier(max_depth=3, n_estimators=100))
         ]),
     'only_avoidance_cutoff':
         Pipeline(steps=[
             ('scaling', StandardScaler()),
-            ('sampling', SMOTE(k_neighbors=10)),
-            ('classifier', LogisticRegression(C=0.01, solver='warn', penalty='l2'))
+            ('sampling', BorderlineSMOTE(k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l1', C=0.1))
         ]),
     'PCL_Strict3':
         Pipeline(steps=[
-            ('classifier', BalancedBaggingClassifier(n_estimators=400))
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.2)),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=30, penalty='l1'))
         ]),
     'regression_cutoff_33':
         Pipeline(steps=[
             ('scaling', StandardScaler()),
-            ('sampling', SMOTE(k_neighbors=5)),
-            ('classifier', MLPClassifier(hidden_layer_sizes=(10, 10)))
+            ('feature_selection', SelectFpr(alpha=0.2)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=7)),
+            ('classifier', RandomForestClassifier(n_estimators=600, max_depth=5))
         ]),
     'regression_cutoff_50':
         Pipeline(steps=[
             ('scaling', StandardScaler()),
-            ('sampling',  BorderlineSMOTE(k_neighbors=10)),
-            ('classifier', LogisticRegression(C=1, penalty='l2', solver='warn'))
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE()),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7))
         ]),
     'tred_cutoff':
         Pipeline(steps=[
-            ('classifier', BalancedBaggingClassifier(n_estimators=400))
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
         ])
 }
 
@@ -122,8 +138,8 @@ class TargetEnsembler(object):
                 y = X_train[target].apply(lambda x: int(x))
 
             pipeline = pipeline_per_target[target]
-            scores = cross_val_score(pipeline, X, y, scoring='f1', cv=StratifiedKFold(5))
-            print(f"{target} - {sum(scores)/len(scores)}")
+#            scores = cross_val_score(pipeline, X, y, scoring='f1', cv=StratifiedKFold(5))
+#            print(f"{target} - {sum(scores)/len(scores)}")
 
             if self.train_on_partial_prediction:
                 combined_y = pd.DataFrame(y, columns=[target])
@@ -200,11 +216,11 @@ class TargetEnsembler(object):
 
 
 def cv(X_train, y_train, features):
-    kfold = StratifiedKFold(n_splits=3, shuffle=True)
 
-    scores_f = []
-    scores_p = []
-    scores_r = []
+    kfold = LeaveOneOut() #StratifiedKFold(n_splits=3, shuffle=True)
+
+    y_preds = []
+    y_tests = []
 
     for train, test in kfold.split(X_train, y_train):
         model = TargetEnsembler(features)
@@ -214,40 +230,24 @@ def cv(X_train, y_train, features):
         X_test_cv = pd.DataFrame(X_train.values[test], columns=X_train.columns)
         y_test_cv = pd.DataFrame(y_train.values[test], columns=["PCL_Strict3"])
         model.fit(X_train_cv, y_train_cv)
+        y_preds.extend(model.predict(X_test_cv))
+        y_tests.append(y_test_cv["PCL_Strict3"][0])
 
-        y_pred = model.predict(X_test_cv)
-
-        s_f = f1_score(y_test_cv, y_pred)
-        s_p = precision_score(y_test_cv, y_pred)
-        s_r = recall_score(y_test_cv, y_pred)
-        print("\tscores f1", (s_f))
-        print("\tscores p", (s_p))
-        print("\tscores r", (s_r))
-        scores_f.append(s_f)
-        scores_p.append(s_p)
-        scores_r.append(s_r)
-
-    print("mean scores f1", np.mean(scores_f))
-    print("mean scores p", np.mean(scores_p))
-    print("mean scores r", np.mean(scores_r))
+    s_f = f1_score(y_tests, y_preds)
+    s_p = precision_score(y_tests, y_preds)
+    s_r = recall_score(y_tests, y_preds)
+    print("\tscores f1", (s_f))
+    print("\tscores p", (s_p))
+    print("\tscores r", (s_r))
 
 
 def runner():
 
     targets_indexer = [
     [0, 0, 0, 0, 0, 1, 0, 1, 0],
-    [1,1,1,0,0,0,1,0,0],
-        [1, 1, 1, 0, 0, 0, 0, 1, 0],
-        [1, 1, 1, 0, 0, 1, 1, 0, 0],
-        [0, 0, 1, 1, 1, 1, 0, 0, 1],
-        [0, 0, 1, 1, 1, 0, 1, 0, 1],
-        [0, 0, 1, 1, 1, 0, 0, 1, 1],
-        [0, 0, 0, 0, 0, 0, 1, 0, 1],
-        [0, 0, 0, 0, 0, 0, 0, 1, 1],
-        [0, 0, 0, 0, 0, 1, 0, 0, 1],
-
+    [1, 1, 1, 0, 0, 1, 0, 1, 0],
+    [1, 1, 1, 0, 0, 0, 0, 0, 0],
         ]
-
     for targets_index in targets_indexer:
         for counter, value in enumerate(targets_dict.keys()):
             targets_dict[value] = targets_index[counter]

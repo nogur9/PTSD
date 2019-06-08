@@ -1,5 +1,5 @@
 import xlsxwriter
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import cross_val_score, cross_val_predict
 from sklearn.feature_selection import RFE, SelectKBest, SelectFdr, SelectFpr
 import string
 import datawig
@@ -10,20 +10,21 @@ import numpy as np
 from sklearn.linear_model import ElasticNet, LogisticRegression
 from feature_engineering.engineering import FeatureEngineering
 import os
+from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.preprocessing import FunctionTransformer, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, StandardScaler, MinMaxScaler, PowerTransformer
 from sklearn.svm import SVC
 from xgboost import XGBClassifier, XGBRegressor
 from itertools import combinations
 import pandas as pd
 from fancyimpute import KNN, IterativeImputer
-from imblearn.over_sampling import SMOTE, BorderlineSMOTE
+from imblearn.over_sampling import SMOTE, BorderlineSMOTE, ADASYN
 from imblearn.ensemble import BalancedBaggingClassifier, BalancedRandomForestClassifier
 from imblearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 from sklearn import tree
 from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold, RandomizedSearchCV, LeaveOneOut
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 
@@ -49,7 +50,7 @@ class EDAMultiFeatureBackend:
         mice = IterativeImputer()
         return pd.DataFrame(mice.fit_transform(df), columns=df.columns)
 
-    def model_selection_by_grid_search(self, use_feature_engineering=1):
+    def model_selection_by_grid_search(self, use_feature_engineering=0):
 
         if use_feature_engineering:
             X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
@@ -58,190 +59,121 @@ class EDAMultiFeatureBackend:
 
         Y = self.df[self.target]
         c = ((len(Y) - sum(Y))/ sum(Y))
-        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
-
-        # _____________________________________________________________________________________________________________________
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, stratify=Y)
 
 
-        # Construct some pipelines
-        pipe_lr = Pipeline([('scl', StandardScaler()),
-                            ('clf', LogisticRegression(random_state=42))])
-
-        pipe = Pipeline(steps=[
-            ('feature_selection',
-             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+        pipe_rf = Pipeline(steps=[
+            ('scaling', StandardScaler()),
             ('sampling', SMOTE()),
-            ('classifier', RandomForestClassifier(n_estimators=100))
+            ('classifier', RandomForestClassifier())
         ])
 
-        params = {'feature_selection': [
-            RFE(XGBClassifier(n_estimators=100, reg_alpha=1, scale_pos_weight=c), n_features_to_select=n),
-            SelectKBest(k=n), SelectFpr(alpha=1 / n), SelectFdr(alpha=1 / n)],
+
+        params_rf = {
                   'sampling': [SMOTE(), BorderlineSMOTE()],
-                  'sampling__k_neighbors': [5, 10],
-                  'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(),
-                                 BalancedRandomForestClassifier()],
-                  'classifier__n_estimators': [100, 200, 400, 600],
-                  'classifier__max_depth': [2, 3, 5, 10]
+                  #'sampling__k_neighbors': [5, 10, 15],
+                  #'classifier': [RandomForestClassifier()],
+                  'classifier__n_estimators': [100, 250, 400, 700],
+                  'classifier__max_depth': [2, 3, 6, 10],
+                  'classifier__max_features': [1.0, 0.8, 0.5, 'auto'],
+                  'classifier__min_samples_split': [1.0, 0.9, 0.8, 0.5]
                   }
 
 
-        pipe_lr_pca = Pipeline(steps=[
-            ('scl', StandardScaler()),
-            ('feature_selection',
-             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+        pipe_bbc = Pipeline(steps=[
+            ('classifier', BalancedBaggingClassifier())
+        ])
+
+
+        params_bbc = {
+                  'classifier': [BalancedRandomForestClassifier(), BalancedBaggingClassifier()],
+                  'classifier__n_estimators': [100, 250, 400, 700],
+                  'classifier__max_features': [1.0, 0.9, 0.8,0.5],
+                  }
+
+        pipe_xgb = Pipeline(steps=[
+            ('classifier', XGBClassifier())
+        ])
+
+        params_xgb = {
+                  'classifier': [XGBClassifier()],
+                  'classifier__n_estimators': [100, 250, 400, 700],
+                  'classifier__max_depth': [2, 3, 6, 10],
+                  'classifier__learning_rate': [0.1, 0.05, 0.25],
+                  'classifier__gamma': [0, 0.5, 1],
+                  #'classifier__min_child_weight': [1, 0.5, 2],
+                  'classifier__scale_pos_weight': [c, 2*c, 0.5*c],
+                  #'classifier__reg_alpha': [0, 1, 0.5],
+                  #'classifier__reg_lambda': [0, 1, 0.5]
+                  }
+
+        pipe_lr = Pipeline(steps=[
+            ('scaling', StandardScaler()),
             ('sampling', SMOTE()),
-            ('classifier', RandomForestClassifier(n_estimators=100))
+            ('classifier', LogisticRegression(solver='warn'))
         ])
 
+        params_lr = {
+                  'sampling': [SMOTE(), BorderlineSMOTE()],
+                  #'sampling__k_neighbors': [5, 10, 15],
+                  'classifier__penalty': ['l1', 'l2'],
+                  "classifier__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+                  }
 
-        pipe_lr_pca = Pipeline(steps=[
-            ('feature_selection',
-             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
+        pipe_nn = Pipeline(steps=[
+            ('scaling', StandardScaler()),
             ('sampling', SMOTE()),
-            ('classifier', RandomForestClassifier(n_estimators=100))
+            ('classifier', MLPClassifier())
         ])
 
 
-        pipe_rf = Pipeline(steps=[
-            ('scl', StandardScaler()),
-            ('feature_selection',SelectKBest(k=n)),
-            ('sampling', SMOTE()),
-            ('classifier', RandomForestClassifier(n_estimators=100))
-        ])
-
-
-        pipe_rf = Pipeline(steps=[
-            ('scl', StandardScaler()),
-            ('feature_selection',SelectFpr(alpha=1 / n)),
-            ('sampling', SMOTE()),
-            ('classifier', RandomForestClassifier(n_estimators=100))
-        ])
-
-        pipe_svm_pca = Pipeline([('scl', StandardScaler()),
-                                 ('feature_selection',SelectFpr(alpha=1 / n)),
-                                  ('sampling', SMOTE()),
-                                 ('clf', SVC(random_state=42))])
-
-        pipe_rf_pca = Pipeline([('scl', StandardScaler()),
-                                ('pca', PCA(n_components=2)),
-                                ('clf', RandomForestClassifier(random_state=42))])
-
-        pipe_lr_pca = Pipeline(steps=[
-            ('scl', StandardScaler()),
-            ('feature_selection',
-             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
-            ('classifier', RandomForestClassifier(n_estimators=100))
-        ])
-
-        pipe_lr_pca = Pipeline(steps=[
-            ('feature_selection',
-             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
-            ('classifier', RandomForestClassifier(n_estimators=100))
-        ])
-
-        pipe_rf = Pipeline(steps=[
-            ('scl', StandardScaler()),
-            ('feature_selection', SelectKBest(k=n)),
-            ('classifier', RandomForestClassifier(n_estimators=100))
-        ])
-
-        pipe_rf = Pipeline(steps=[
-            ('scl', StandardScaler()),
-            ('feature_selection', SelectFpr(alpha=1 / n)),
-            ('sampling', SMOTE()),
-            ('classifier', RandomForestClassifier(n_estimators=100))
-        ])
-
-        pipe_svm_pca = Pipeline([('scl', StandardScaler()),
-                                 ('feature_selection', SelectFpr(alpha=1 / n)),
-                                 ('clf', SVC(random_state=42))])
-        pipe = Pipeline(steps=[
-            ('scl', StandardScaler()),
-            ('sampling', SMOTE()),
-            ('classifier', LogisticRegression(penalty='l1'))
-        ])
-
-        pipe = Pipeline(steps=[
-            ('scl', StandardScaler()),
-            ('feature_selection', SelectFpr(alpha=1 / n)),
-            ('sampling', SMOTE()),
-            ('classifier', LogisticRegression(penalty='l1'))
-        ])
-
-        params = {
-            'sampling': [SMOTE(), BorderlineSMOTE()],
-            'sampling__k_neighbors': [5, 10],
-            'classifier__penalty': ['l1'],
-            "classifier__C": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
-            #  "classifier__l1_ratio": np.arange(0.0, 1.0, 0.2)
-        }
-        # Set grid search params
-        param_range = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        param_range_fl = [1.0, 0.5, 0.1]
-
-        grid_params_lr = [{'clf__penalty': ['l1', 'l2'],
-                           'clf__C': param_range_fl,
-                           'clf__solver': ['liblinear']}]
-
-        grid_params_rf = [{'clf__criterion': ['gini', 'entropy'],
-                           'clf__min_samples_leaf': param_range,
-                           'clf__max_depth': param_range,
-                           'clf__min_samples_split': param_range[1:]}]
-
-        grid_params_svm = [{'clf__kernel': ['linear', 'rbf'],
-                            'clf__C': param_range}]
-
-        # Construct grid searches
-        jobs = -1
-
-        gs_lr = GridSearchCV(estimator=pipe_lr,
-                             param_grid=grid_params_lr,
-                             scoring='accuracy',
-                             cv=10)
-
-        gs_lr_pca = GridSearchCV(estimator=pipe_lr_pca,
-                                 param_grid=grid_params_lr,
-                                 scoring='accuracy',
-                                 cv=10)
+        params_nn = {
+                  'sampling': [SMOTE(), BorderlineSMOTE()],
+                  #'sampling__k_neighbors': [5, 10, 15],
+                  'classifier__hidden_layer_sizes': [(100,), (10,), (10, 10), (10, 5), (100, 10), (10, 10, 10)],
+                  'classifier__alpha': [0.0001, 0.001, 0.00001],
+                  'classifier__learning_rate': ['constant', 'invscaling', 'adaptive']
+                  }
+        loo = StratifiedKFold(5)
 
         gs_rf = GridSearchCV(estimator=pipe_rf,
-                             param_grid=grid_params_rf,
-                             scoring='accuracy',
-                             cv=10,
-                             n_jobs=jobs)
+                             param_grid=params_rf,
+                             scoring='f1',
+                             cv=loo)
 
-        gs_rf_pca = GridSearchCV(estimator=pipe_rf_pca,
-                                 param_grid=grid_params_rf,
-                                 scoring='accuracy',
-                                 cv=10,
-                                 n_jobs=jobs)
+        gs_bbc = GridSearchCV(estimator=pipe_bbc,
+                             param_grid=params_bbc,
+                             scoring='f1',
+                             cv=loo)
 
-        gs_svm = GridSearchCV(estimator=pipe_svm,
-                              param_grid=grid_params_svm,
-                              scoring='accuracy',
-                              cv=10,
-                              n_jobs=jobs)
+        gs_xgb = GridSearchCV(estimator=pipe_xgb,
+                             param_grid=params_xgb,
+                             scoring='f1',
+                             cv=loo)
 
-        gs_svm_pca = GridSearchCV(estimator=pipe_svm_pca,
-                                  param_grid=grid_params_svm,
-                                  scoring='accuracy',
-                                  cv=10,
-                                  n_jobs=jobs)
+        gs_lr = GridSearchCV(estimator=pipe_lr,
+                             param_grid=params_lr,
+                             scoring='f1',
+                             cv=loo)
+
+
+        gs_nn = GridSearchCV(estimator=pipe_nn,
+                             param_grid=params_nn,
+                             scoring='f1',
+                             cv=loo)
 
         # List of pipelines for ease of iteration
-        grids = [gs_lr, gs_lr_pca, gs_rf, gs_rf_pca, gs_svm, gs_svm_pca]
+        grids = [gs_nn, gs_bbc, gs_xgb,
+                 gs_lr, gs_rf]
 
         # Dictionary of pipelines and classifier types for ease of reference
-        grid_dict = {0: 'Logistic Regression', 1: 'Logistic Regression w/PCA',
-                     2: 'Random Forest', 3: 'Random Forest w/PCA',
-                     4: 'Support Vector Machine', 5: 'Support Vector Machine w/PCA'}
+        grid_dict = {0: 'nn', 1: 'bbc', 2: 'xgb',
+                     3: 'lr', 4: 'rf'}
 
         # Fit the grid search objects
         print('Performing model optimizations...')
-        best_acc = 0.0
         best_clf = 0
-        best_gs = ''
+        best_f1 = 0.0
         for idx, gs in enumerate(grids):
             print('\nEstimator: %s' % grid_dict[idx])
             # Fit grid search
@@ -249,122 +181,1447 @@ class EDAMultiFeatureBackend:
             # Best params
             print('Best params: %s' % gs.best_params_)
             # Best training data accuracy
-            print('Best training accuracy: %.3f' % gs.best_score_)
+            print('Best training score: %.3f' % gs.best_score_)
             # Predict on test data with best params
             y_pred = gs.predict(X_test)
             # Test data accuracy of model with best params
-            print('Test set accuracy score for best params: %.3f ' % accuracy_score(y_test, y_pred))
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
             # Track best (highest test accuracy) model
-            if accuracy_score(y_test, y_pred) > best_acc:
-                best_acc = accuracy_score(y_test, y_pred)
-                best_gs = gs
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
                 best_clf = idx
-        print('\nClassifier with best test set accuracy: %s' % grid_dict[best_clf])
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
 
 
-        if 0:
-            # ____________________________________________________________________________________________________________________
-            pipe = Pipeline(steps=[
-                ('feature_selection', RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
-                ('sampling', SMOTE()),
-                ('classifier', RandomForestClassifier(n_estimators=100))
-            ])
 
-            params = {'feature_selection':[RFE(XGBClassifier(n_estimators=100, reg_alpha=1, scale_pos_weight=c),  n_features_to_select=n),
-                                           SelectKBest(k=n), SelectFpr(alpha=1/n), SelectFdr(alpha=1/n)],
-                      'sampling': [SMOTE(), BorderlineSMOTE()],
-                      'sampling__k_neighbors': [5, 10],
-                      'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(),
-                                     BalancedRandomForestClassifier()],
-                      'classifier__n_estimators': [100, 200, 400,600],
-                      'classifier__max_depth': [2, 3, 5, 10]
-                      }
-            clf = GridSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
-
-            clf.fit(X_train, y_train)
-            print("clf.best_params_", clf.best_params_)
-            print(f"best {scoring} score", clf.best_score_)
-
-            y_pred = clf.best_estimator_.predict(X_test.values)
-
-            acc = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred)
-            recall = recall_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred)
-            print("test scores")
-            print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
-
-        #_____________________________________________________________________________
-
+    def model_selection_by_grid_search_loo(self, use_feature_engineering=0):
+        print(f"use_feature_engineering = {use_feature_engineering}")
+        if use_feature_engineering:
             X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
-            Y = self.df[self.target]
-            c = ((len(Y) - sum(Y)) / sum(Y))
-            X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
+        else:
+            X = self.df[self.features]
 
-            pipe = Pipeline(steps=[
-                ('sampling', SMOTE()),
-                ('classifier', LogisticRegression())
-            ])
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
 
-            params = {
-                'sampling': [SMOTE(), BorderlineSMOTE()],
-                'sampling__k_neighbors': [5, 10],
-                'classifier__penalty': ['l1'],
-                "classifier__C": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
-                #  "classifier__l1_ratio": np.arange(0.0, 1.0, 0.2)
-            }
-            clf = GridSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=10)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100,  max_depth=7))
+        ])
 
-            clf.fit(X_train, y_train)
-            print("clf.best_params_", clf.best_params_)
-            print(f"best {scoring} score", clf.best_score_)
 
-            y_pred = clf.best_estimator_.predict(X_test.values)
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=10)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', XGBClassifier(n_estimators=100, max_depth=3))
+        ])
 
-            acc = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred)
-            recall = recall_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred)
-            print("test scores")
-            print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=3))
+        ])
 
-            # ____________________________________________________________________________________
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', SMOTE()),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7))
+        ])
 
+
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+        ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', XGBClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=3))
+        ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE()),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+        ])
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', XGBClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=3))
+        ])
+
+        pipe_12 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE()),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7))
+        ])
+        pipe_13 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFdr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+        ])
+
+        pipe_14 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',SelectFdr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', XGBClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_15 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFdr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE()),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=3))
+        ])
+
+        pipe_16 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFdr(alpha=0.5)),
+            ('sampling', SMOTE()),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_17 = Pipeline(steps=[
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=10)),
+            ('classifier', BalancedBaggingClassifier(n_estimators=200))
+        ])
+
+        pipe_18 = Pipeline(steps=[
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=10)),
+            ('classifier', XGBClassifier(n_estimators=100, max_depth=3, scale_pos_weight=c))
+        ])
+
+        pipe_19 = Pipeline(steps=[
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=400, max_depth=3))
+        ])
+
+        pipe_20 = Pipeline(steps=[
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_21 = Pipeline(steps=[
+            ('feature_selection', SelectKBest(k=10)),
+            ('classifier', BalancedBaggingClassifier(n_estimators=400))
+        ])
+
+        pipe_22 = Pipeline(steps=[
+            ('feature_selection',SelectKBest(k=10)),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_23 = Pipeline(steps=[
+            ('feature_selection', SelectKBest(k=25)),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=400, max_depth=3))
+        ])
+
+        pipe_24 = Pipeline(steps=[
+            ('feature_selection', SelectKBest(k=25)),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7, scale_pos_weight=c))
+        ])
+
+        pipe_25 = Pipeline(steps=[
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('classifier', BalancedBaggingClassifier(n_estimators=400))
+        ])
+
+        pipe_26 = Pipeline(steps=[
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_27 = Pipeline(steps=[
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=3, scale_pos_weight=c))
+        ])
+
+        pipe_28 = Pipeline(steps=[
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7, scale_pos_weight=c))
+        ])
+        pipe_29 = Pipeline(steps=[
+            ('feature_selection', SelectFdr(alpha=0.01)),
+            ('classifier', BalancedBaggingClassifier(n_estimators=400))
+        ])
+
+        pipe_30 = Pipeline(steps=[
+            ('feature_selection',SelectFdr(alpha=0.5)),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_31 = Pipeline(steps=[
+            ('feature_selection', SelectFdr(alpha=0.01)),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=3, scale_pos_weight=c))
+        ])
+
+        pipe_32 = Pipeline(steps=[
+            ('feature_selection', SelectFdr(alpha=0.5)),
+            ('classifier', XGBClassifier(n_estimators=400, max_depth=7, scale_pos_weight=c))
+        ])
+
+
+        pipe_33 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', BorderlineSMOTE(k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l1', C=2))
+        ])
+
+        pipe_34 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', BorderlineSMOTE(k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l1', C=30))
+        ])
+
+        pipe_35 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', BorderlineSMOTE(k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l1', C=30))
+        ])
+
+        pipe_36 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', BorderlineSMOTE(k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l1', C=0.1))
+        ])
+
+
+        pipe_37 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE(k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l2', C=0.1))
+        ])
+
+        pipe_38 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l1', C=30))
+        ])
+
+        pipe_39 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE(k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l1', C=30))
+        ])
+
+        pipe_40 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l2', C=0.1))
+        ])
+
+
+        pipes = [pipe_1, pipe_2, pipe_3, pipe_4, pipe_5, pipe_6, pipe_7, pipe_8, pipe_9, pipe_10, pipe_11, pipe_12,
+                 pipe_13, pipe_14, pipe_15, pipe_16, pipe_17, pipe_18, pipe_19, pipe_20, pipe_21, pipe_22, pipe_23,
+                 pipe_24, pipe_25, pipe_26, pipe_27, pipe_28, pipe_29, pipe_30, pipe_31, pipe_32, pipe_33, pipe_34,
+                 pipe_35, pipe_36, pipe_37, pipe_38, pipe_39, pipe_40]
+        #
+        # pipes = [pipe_4,  pipe_8, pipe_12, pipe_16, pipe_20,
+        #          pipe_24,  pipe_28, pipe_32,  pipe_36,  pipe_40]
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'pipe_1', 1: 'pipe_2', 2: 'pipe_3',
+                     3: 'pipe_4', 4: 'pipe_5', 5: 'pipe_6',
+                     6: 'pipe_7', 7: 'pipe_8', 8: 'pipe_9',
+                     9: 'pipe_10', 10: 'pipe_11', 11: 'pipe_12',
+                     12: 'pipe_13', 13: 'pipe_14', 14:'pipe_15',
+                     15: 'pipe_16', 16: 'pipe_17', 17: 'pipe_18',
+                     18: 'pipe_19', 19: 'pipe_20', 20: 'pipe_21',
+                     21: 'pipe_22', 22: 'pipe_23', 23: 'pipe_24',
+                     24: 'pipe_25', 25: 'pipe_24', 26: 'pipe_27',
+                     27: 'pipe_28', 28: 'pipe_29', 29: 'pipe_30',
+                     30: 'pipe_31', 31: 'pipe_32', 32: 'pipe_33',
+                     33: 'pipe_34', 34: 'pipe_35', 35: 'pipe_36',
+                     36: 'pipe_37', 37: 'pipe_38', 38: 'pipe_39',
+                     39: 'pipe_40'}
+
+        # grid_dict = {0: 'pipe_4', 1: 'pipe_8', 2: 'pipe_12',
+        #              3: 'pipe_16', 4: 'pipe_20', 5: 'pipe_24',
+        #              6: 'pipe_28', 7: 'pipe_32', 8: 'pipe_36',
+        #              9: 'pipe_40'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_clf = 0
+        best_f1 = 0.0
+        for idx, pipe in enumerate(pipes):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            y_pred  = cross_val_predict(pipe, X_train, y_train, cv=LeaveOneOut())
+            # Best params
+            # Best training data accuracy
+            print('training score: %.3f' % f1_score(y_train, y_pred))
+            # Predict on test data with best params
+            pipe = pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
+                best_clf = idx
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
+
+
+
+
+    def model_selection_by_grid_search_loo_diagnosis(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
             X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
-            Y = self.df[self.target]
-            c = ((len(Y) - sum(Y)) / sum(Y))
-            X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, stratify=Y)
+        else:
+            X = self.df[self.features]
 
-            pipe = Pipeline(steps=[
-                ('feature_selection',
-                 RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=n)),
-                ('classifier', RandomForestClassifier(n_estimators=100))
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=300, penalty='l1'))
+        ])
+
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=600, penalty='l1'))
+        ])
+
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=10, penalty='l1'))
+        ])
+
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', SMOTE(k_neighbors=3, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=1, penalty='l1'))
+        ])
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=3000, penalty='l1'))
+        ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('sampling', SMOTE(k_neighbors=7, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=30, penalty='l1'))
+        ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.8)),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=10, penalty='l1'))
+        ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.9)),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy=0.9)),
+            ('classifier', LogisticRegression(solver='warn', C=10, penalty='l1'))
+        ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', SMOTE(k_neighbors=7, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=100, penalty='l1'))
+        ])
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(k_neighbors=3, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l1'))
+        ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(k_neighbors=3, sampling_strategy=0.9)),
+            ('classifier', LogisticRegression(solver='warn', C=5000, penalty='l1'))
+        ])
+
+        pipe_12 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('pca', PCA()),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=1, penalty='l1'))
+        ])
+
+        pipe_13 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.05)),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=10, penalty='l1'))
+        ])
+
+        pipe_14 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.2)),
+            ('sampling', SMOTE(k_neighbors=5, sampling_strategy='auto')),
+            ('classifier', LogisticRegression(solver='warn', C=30, penalty='l1'))
+        ])
+        pipes = [pipe_1, pipe_2, pipe_3, pipe_4, pipe_5, pipe_6, pipe_7, pipe_8, pipe_9, pipe_10, pipe_11, pipe_12, pipe_13, pipe_14]
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'pipe_1', 1: 'pipe_2', 2: 'pipe_3',
+                     3: 'pipe_4', 4: 'pipe_5', 5: 'pipe_6',
+                     6: 'pipe_7', 7: 'pipe_8', 8: 'pipe_9',
+                     9: 'pipe_10', 10: 'pipe_11', 11: 'pipe_12',
+                     12: 'pipe_13', 13: 'pipe_14'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_clf = 0
+        best_f1 = 0.0
+        for idx, pipe in enumerate(pipes):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            y_pred  = cross_val_predict(pipe, X_train, y_train, cv=LeaveOneOut())
+            # Best params
+            # Best training data accuracy
+            print('training score: %.3f' % f1_score(y_train, y_pred))
+            # Predict on test data with best params
+            pipe = pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
+                best_clf = idx
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
+
+
+    def model_selection_by_grid_search_loo_tred(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
             ])
 
-            params = {'feature_selection': [
-                RFE(XGBClassifier(n_estimators=100, reg_alpha=1, scale_pos_weight=c), n_features_to_select=n),
-                SelectKBest(k=n), SelectFpr(alpha=1 / n), SelectFdr(alpha=1 / n)],
-                      'classifier': [RandomForestClassifier(n_estimators=100), XGBClassifier(scale_pos_weight=c),
-                                     BalancedRandomForestClassifier()],
-                      'classifier__n_estimators': [100, 300, 500],
-                      'classifier__max_depth': [10, 3, 5]
-                      }
-            clf = RandomizedSearchCV(pipe, params, cv=StratifiedKFold(5), scoring=scoring)
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.8)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
 
-            clf.fit(X_train, y_train)
-            print("clf.best_params_", clf.best_params_)
-            print(f"best {scoring} score", clf.best_score_)
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.3)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
 
-            y_pred = clf.best_estimator_.predict(X_test.values)
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.001, penalty='l2'))
+            ])
 
-            acc = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred)
-            recall = recall_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred)
-            print("test scores")
-            print(f"acc-{acc}, f1- {f1}, recall-{recall}, precision - {precision}")
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
 
-            #_____________________________________________________________________________
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=20)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=20)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.3)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.001, penalty='l2'))
+            ])
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.8)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.8)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=20)),
+            ('classifier', LogisticRegression(solver='warn', C=0.001, penalty='l2'))
+            ])
+
+        pipe_12 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.3)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=7)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+
+        pipes = [pipe_1, pipe_2, pipe_3, pipe_4, pipe_5, pipe_6, pipe_7, pipe_8, pipe_9, pipe_10, pipe_11, pipe_12]
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'pipe_1', 1: 'pipe_2', 2: 'pipe_3',
+                     3: 'pipe_4', 4: 'pipe_5', 5: 'pipe_6',
+                     6: 'pipe_7', 7: 'pipe_8', 8: 'pipe_9',
+                     9: 'pipe_10', 10: 'pipe_11', 11: 'pipe_12'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_clf = 0
+        best_f1 = 0.0
+        for idx, pipe in enumerate(pipes):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            y_pred  = cross_val_predict(pipe, X_train, y_train, cv=LeaveOneOut())
+            # Best params
+            # Best training data accuracy
+            print('training score: %.3f' % f1_score(y_train, y_pred))
+            # Predict on test data with best params
+            pipe = pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
+                best_clf = idx
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
+
+
+
+
+
+    def model_selection_by_grid_search_loo_only_avoidance(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.005)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.05)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.001, penalty='l2'))
+            ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=20)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=7)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.01)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=7)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=20)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.005)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=10)),
+            ('classifier', LogisticRegression(solver='warn', C=0.001, penalty='l2'))
+            ])
+
+        pipe_12 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.005)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=15)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+        pipes = [pipe_1, pipe_2, pipe_3, pipe_4, pipe_5, pipe_6, pipe_7, pipe_8, pipe_9, pipe_10, pipe_11, pipe_12]
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'pipe_1', 1: 'pipe_2', 2: 'pipe_3',
+                     3: 'pipe_4', 4: 'pipe_5', 5: 'pipe_6',
+                     6: 'pipe_7', 7: 'pipe_8', 8: 'pipe_9',
+                     9: 'pipe_10', 10: 'pipe_11', 11: 'pipe_12'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_clf = 0
+        best_f1 = 0.0
+        for idx, pipe in enumerate(pipes):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            y_pred  = cross_val_predict(pipe, X_train, y_train, cv=LeaveOneOut())
+            # Best params
+            # Best training data accuracy
+            print('training score: %.3f' % f1_score(y_train, y_pred))
+            # Predict on test data with best params
+            pipe = pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
+                best_clf = idx
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
+
+
+
+    def model_selection_by_grid_search_loo_hypertension(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.3)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.7)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=3)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(sampling_strategy=0.9, k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.01, penalty='l2'))
+            ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.001, penalty='l2'))
+            ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.5, penalty='l2'))
+            ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.5)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.05, penalty='l2'))
+            ])
+
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.3)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.001, penalty='l2'))
+            ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.3)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+        pipe_12 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.7)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', C=0.1, penalty='l2'))
+            ])
+
+        pipes = [pipe_1, pipe_2, pipe_3, pipe_4, pipe_5, pipe_6, pipe_7, pipe_8, pipe_9, pipe_10, pipe_11, pipe_12]
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'pipe_1', 1: 'pipe_2', 2: 'pipe_3',
+                     3: 'pipe_4', 4: 'pipe_5', 5: 'pipe_6',
+                     6: 'pipe_7', 7: 'pipe_8', 8: 'pipe_9',
+                     9: 'pipe_10', 10: 'pipe_11', 11: 'pipe_12'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_clf = 0
+        best_f1 = 0.0
+        for idx, pipe in enumerate(pipes):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            y_pred  = cross_val_predict(pipe, X_train, y_train, cv=LeaveOneOut())
+            # Best params
+            # Best training data accuracy
+            print('training score: %.3f' % f1_score(y_train, y_pred))
+            # Predict on test data with best params
+            pipe = pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
+                best_clf = idx
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
+
+
+    def model_selection_by_grid_search_loo_regression_cutoff_33(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.2)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.05)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=3)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=600, max_depth=7))
+        ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=10))
+        ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7,  min_samples_leaf=2))
+        ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=7)),
+            ('classifier', RandomForestClassifier(n_estimators=600, max_depth=10,  min_samples_leaf=2))
+        ])
+
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.1)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=5,  min_samples_leaf=2))
+        ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.05)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=3)),
+            ('classifier', RandomForestClassifier(n_estimators=300, max_depth=5))
+        ])
+
+        pipe_12 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectFpr(alpha=0.2)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=7)),
+            ('classifier', RandomForestClassifier(n_estimators=600, max_depth=5))
+        ])
+
+        pipes = [pipe_1, pipe_2, pipe_3, pipe_4, pipe_5, pipe_6, pipe_7, pipe_8, pipe_9, pipe_10, pipe_11, pipe_12]
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'pipe_1', 1: 'pipe_2', 2: 'pipe_3',
+                     3: 'pipe_4', 4: 'pipe_5', 5: 'pipe_6',
+                     6: 'pipe_7', 7: 'pipe_8', 8: 'pipe_9',
+                     9: 'pipe_10', 10: 'pipe_11', 11: 'pipe_12'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_clf = 0
+        best_f1 = 0.0
+        for idx, pipe in enumerate(pipes):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            y_pred  = cross_val_predict(pipe, X_train, y_train, cv=LeaveOneOut())
+            # Best params
+            # Best training data accuracy
+            print('training score: %.3f' % f1_score(y_train, y_pred))
+            # Predict on test data with best params
+            pipe = pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
+                best_clf = idx
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
+
+
+    def model_selection_by_grid_search_loo_depression(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=15)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=7)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=15)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=300, max_depth=7))
+        ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=500, max_depth=7))
+        ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=10))
+        ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=5))
+        ])
+
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7, min_samples_leaf=2))
+        ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7, min_samples_leaf=2))
+        ])
+
+        pipe_12 =Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7, min_samples_leaf=2))
+        ])
+
+
+    def model_selection_by_grid_search_loo_regression_cutoff_50(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=35)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=3)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=200, max_depth=7))
+        ])
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=11))
+        ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=5))
+        ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=50, max_depth=7))
+        ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy=0.9, k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=7))
+        ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=200, max_depth=11))
+        ])
+
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=7, min_samples_leaf=2))
+        ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=20)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=5, min_samples_leaf=2))
+        ])
+
+        pipe_12 =Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy=0.9, k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=50, max_depth=5, min_samples_leaf=2))
+        ])
+
+
+    def model_selection_by_grid_search_loo_intrusion(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+        ])
+
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=35)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+        ])
+
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=15)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+        ])
+
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=2))
+        ])
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=5))
+        ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=15)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+        ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+        ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=200, max_depth=3))
+        ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=50, max_depth=3))
+        ])
+
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=300, max_depth=3))
+        ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3, min_samples_split=4))
+        ])
+
+        pipe_12 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3, min_samples_leaf=2))
+        ])
+
+        pipes = [pipe_1, pipe_2, pipe_3, pipe_4, pipe_5, pipe_6, pipe_7, pipe_8, pipe_9, pipe_10, pipe_11, pipe_12]
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'pipe_1', 1: 'pipe_2', 2: 'pipe_3',
+                     3: 'pipe_4', 4: 'pipe_5', 5: 'pipe_6',
+                     6: 'pipe_7', 7: 'pipe_8', 8: 'pipe_9',
+                     9: 'pipe_10', 10: 'pipe_11', 11: 'pipe_12'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_clf = 0
+        best_f1 = 0.0
+        for idx, pipe in enumerate(pipes):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            y_pred  = cross_val_predict(pipe, X_train, y_train, cv=LeaveOneOut())
+            # Best params
+            # Best training data accuracy
+            print('training score: %.3f' % f1_score(y_train, y_pred))
+            # Predict on test data with best params
+            pipe = pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
+                best_clf = idx
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
+
+
+    def model_selection_by_grid_search_loo_avoidance(self, use_feature_engineering=1):
+
+        if use_feature_engineering:
+            X = FeatureEngineering(self.df[self.features], self.target).engineer_features()
+        else:
+            X = self.df[self.features]
+
+        Y = self.df[self.target]
+        c = ((len(Y) - sum(Y))/ sum(Y))
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.4, stratify=Y)
+        # regression_cutoff_50
+        pipe_1 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=3))
+        ])
+
+        pipe_2 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=15)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=3))
+        ])
+
+        pipe_3 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=300, max_depth=3))
+        ])
+
+        pipe_4 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=200, max_depth=7))
+        ])
+
+        pipe_5 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=11))
+        ])
+
+        pipe_6 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=5))
+        ])
+
+        pipe_7 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=25)),
+            ('sampling', SMOTE(sampling_strategy='auto', k_neighbors=5)),
+            ('classifier', RandomForestClassifier(n_estimators=50, max_depth=7))
+        ])
+
+        pipe_8 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection', SelectKBest(k=10)),
+            ('sampling', BorderlineSMOTE(sampling_strategy=0.9, k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=400, max_depth=7))
+        ])
+
+        pipe_9 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=50, max_depth=3))
+        ])
+
+
+        pipe_10 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=300, max_depth=3))
+        ])
+
+        pipe_11 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3, min_samples_split=4))
+        ])
+
+        pipe_12 = Pipeline(steps=[
+            ('scaling', StandardScaler()),
+            ('feature_selection',
+             RFE(XGBClassifier(n_estimators=100, scale_pos_weight=c, reg_alpha=1), n_features_to_select=25)),
+            ('sampling', BorderlineSMOTE(sampling_strategy='auto', k_neighbors=10)),
+            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3, min_samples_leaf=2))
+        ])
+
+        pipes = [pipe_1, pipe_2, pipe_3, pipe_4, pipe_5, pipe_6, pipe_7, pipe_8]#, pipe_9, pipe_10, pipe_11, pipe_12]
+        # Dictionary of pipelines and classifier types for ease of reference
+        grid_dict = {0: 'pipe_1', 1: 'pipe_2', 2: 'pipe_3',
+                     3: 'pipe_4', 4: 'pipe_5', 5: 'pipe_6',
+                     6: 'pipe_7', 7: 'pipe_8', 8: 'pipe_9',
+                     9: 'pipe_10', 10: 'pipe_11', 11: 'pipe_12'}
+
+        # Fit the grid search objects
+        print('Performing model optimizations...')
+        best_clf = 0
+        best_f1 = 0.0
+        for idx, pipe in enumerate(pipes):
+            print('\nEstimator: %s' % grid_dict[idx])
+            # Fit grid search
+            y_pred  = cross_val_predict(pipe, X_train, y_train, cv=LeaveOneOut())
+            # Best params
+            # Best training data accuracy
+            print('training score: %.3f' % f1_score(y_train, y_pred))
+            # Predict on test data with best params
+            pipe = pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
+            # Test data accuracy of model with best params
+            print('Test set score score for best params: %.3f ' % f1_score(y_test, y_pred))
+            # Track best (highest test accuracy) model
+            if f1_score(y_test, y_pred) > best_f1:
+                best_f1 = f1_score(y_test, y_pred)
+                best_clf = idx
+        print('\nClassifier with best test set score: %s' % grid_dict[best_clf])
+
 
     def model_checking(self, n, scoring='f1'):
         X = FeatureEngineering(self.df[self.features], self.target).engineer_features()

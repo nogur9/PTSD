@@ -11,7 +11,11 @@ from sklearn.neighbors import KNeighborsClassifier
 #.EDASingleFeatureBackend, EDA_backend.EDAMultiFeatureBackend
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-mew = 1
+
+import warnings
+warnings.filterwarnings("ignore")
+
+mew = 0
 class Model:
 
     features = ["age", "highschool_diploma", "dyslexia", "ADHD", "T1Acc1t", "T1Acc1n", "T1bias", "phq1", "lot1",
@@ -27,6 +31,7 @@ class Model:
                 "self_blame2",
                 "trauma_history8_1", "HML_5HTT", "HL_MAOA", "HML_NPY", "COMT_Hap1_recode",
                 "COMT_Hap2_recode", "COMT_Hap1_LvsMH", "HML_FKBP5"]
+
     features_2 = ['q6.1_INTRU_pcl1', 'q6.2_DREAM_pcl1',
                   'q6.3_FLASH_pcl1', 'q6.4_UPSET_pcl1',
                   'q6.5_PHYS_pcl1', 'q6.6_AVTHT_pcl1', 'q6.7_AVSIT_pcl1', 'q6.8_AMNES_pcl1', 'q6.9_DISINT_pcl1',
@@ -55,6 +60,7 @@ class Model:
         path = "C:\‏‏PycharmProjects\PTSD\Data\PTSD.xlsx"
         df = pd.read_excel(path)
         df = df[~df['PCL_Strict3'].isna()]
+        df = df[df["military_exp18_t3"] > 0]
         df = df[self.features + self.ID + self.target_features]
         df_pcl3 = pd.read_excel("C:\‏‏PycharmProjects\PTSD\Data\questionnaire6PCL3.xlsx")
         df_pcl3 = PCL_calculator(df_pcl3)
@@ -85,32 +91,51 @@ class Model:
         df = pd.concat([X_train, y_train], axis=1)
         self.X_test = X_test
         self.y_test =y_test
+
+        self.X_train_0 = X_train_0
+        self.X_test_0 = X_test_0
+        self.y_train_0 = y_train_0
+        self.y_test_0 = y_test_0
+
         self.df = df
 
     def test_models_for_targets(self):
         targets = {
-            'intrusion': 0,
-            'avoidance': 0,
-            'hypertension': 0,
-            'depression': 0,
-            'only_avoidance': 0,
-            'PCL_Strict3': 1,
-            'regression_cutoff_33': 0,
+            'intrusion_cutoff': 0,
+            'avoidance_cutoff': 0,
+            'hypertention_cutoff': 0,
+            'depression_cutoff': 0,
+            'only_avoidance_cutoff': 0,
+            'diagnosis': 1,
+            'regression_cutoff_33': 1,
             'regression_cutoff_50': 1,
-            'tred_cutoff': 0
+            'tred_cutoff': 1
         }
         targets_list = [i for i in targets if targets[i] == 1]
-
-        n_features = [5]#, 10, 20, 30]
         for target in targets_list:
-            print("\n\n\n intrusion_cutoff \n")
+            print(f"\n\n\n\t\b{target}\n")
             multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
+            multiple_features_eda.model_selection_by_grid_search()
 
-            for n in n_features:
-                print("\n intrusion_cutoff with resample\nn=10")
-                multiple_features_eda.model_selection_by_grid_search()
-                #print("\n intrusion_cutoff without resample\nn=10")
-                #multiple_features_eda.model_checking_without_resampling(10, scoring='precision')
+
+
+    def test_models_with_LOO(self):
+        targets = {
+            'intrusion_cutoff': 1,
+            'avoidance_cutoff': 1,
+            'hypertention_cutoff': 1,
+            'depression_cutoff': 1,
+            'only_avoidance_cutoff': 1,
+            'diagnosis': 1,
+            'regression_cutoff_33': 1,
+            'regression_cutoff_50': 1,
+            'tred_cutoff': 1
+        }
+        targets_list = [i for i in targets if targets[i] == 1]
+        for target in targets_list:
+            print(f"\n\n\n\t\b{target}\n")
+            multiple_features_eda = EDAMultiFeatureBackend(self.df, self.features + self.features_2, target)
+            multiple_features_eda.model_selection_by_grid_search_loo()
 
     def test_algorithms_for_trget_intrusion(self):
         print("precision score")
@@ -414,5 +439,6 @@ if not mew:
     #eda.test_algorithms_for_target_only_avoidance_cutoff()#VX
     #eda.test_algorithms_for_target_tred_cutoff()
     #eda.single_feature_analysis()
+    #eda.test_models_for_targets()
     eda.test_models_for_targets()
 

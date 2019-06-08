@@ -16,19 +16,17 @@ from feature_engineering.engineering import FeatureEngineering
 
 intrusion = 0
 
-# avoidance sucks
 avoidance = 0
 
-hypertension = 0
-
+hypertension = 1
 
 depression = 1
 
-only_avoidance = 1
+only_avoidance = 0
 
 PCL_Strict3 = 0
 
-regression_cutoff_33 = 0
+regression_cutoff_33 = 1
 
 regression_cutoff_50 = 0
 
