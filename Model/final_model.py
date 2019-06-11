@@ -17,71 +17,75 @@ from sklearn.linear_model import ElasticNet, LogisticRegression
 from feature_engineering.engineering import FeatureEngineering
 from sklearn.model_selection import LeaveOneOut
 
-check_on_test_set = 1
+check_on_test_set = 0
 targets_dict = {
     'intrusion_cutoff': 0,
     'avoidance_cutoff': 0,
     'hypertention_cutoff': 0,
     'depression_cutoff': 0,
     'only_avoidance_cutoff': 0,
-    'PCL_Strict3': 1,
-    'regression_cutoff_33': 1,
-    'regression_cutoff_50': 1,
+    'PCL_Strict3': 0,
+    'regression_cutoff_33': 0,
+    'regression_cutoff_50': 0,
     'tred_cutoff': 0,
 }
 
 pipeline_per_target = {
     'intrusion_cutoff':
         Pipeline(steps=[
-            ('classifier', BalancedRandomForestClassifier(max_depth=3, n_estimators=400))
+            ('classifier', XGBClassifier(max_depth=2, n_estimators=100,
+                                         learning_rate=0.1, gamma=0,
+                                         scale_pos_weight=2.9))
         ]),
     'avoidance_cutoff':
         Pipeline(steps=[
             ('scaling', StandardScaler()),
-            ('sampling', BorderlineSMOTE(k_neighbors=10)),
-            ('classifier', MLPClassifier(hidden_layer_sizes=(10, 10)))
+            ('sampling', BorderlineSMOTE(k_neighbors=5)),
+            ('classifier', MLPClassifier(hidden_layer_sizes=(10, 5),
+                                         alpha=1e-05, learning_rate='constant'))
         ]),
     'hypertention_cutoff':
         Pipeline(steps=[
-            ('classifier', XGBClassifier(scale_pos_weight=3.511, max_depth=7, n_estimators=400))
+            ('scaling', StandardScaler()),
+            ('sampling', BorderlineSMOTE(k_neighbors=15)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l2', C=0.01))
         ]),
     'depression_cutoff':
         Pipeline(steps=[
-            ('scaling', StandardScaler()),
-            ('sampling', BorderlineSMOTE(k_neighbors=10)),
-            ('classifier', RandomForestClassifier(n_estimators=100, max_depth=3))
+            ('classifier', XGBClassifier(max_depth=2, n_estimators=700,
+                                         learning_rate=0.25, gamma=0,
+                                         scale_pos_weight=2.67))
         ]),
     'only_avoidance_cutoff':
         Pipeline(steps=[
-            ('scaling', StandardScaler()),
-            ('sampling', SMOTE(k_neighbors=10)),
-            ('classifier', LogisticRegression(C=0.01, solver='warn', penalty='l2'))
+            ('classifier', BalancedRandomForestClassifier(n_estimators=100,
+                                                          max_features=0.8))
         ]),
     'PCL_Strict3':
         Pipeline(steps=[
-            ('classifier', BalancedBaggingClassifier(n_estimators=400))
-        ]),
+            ('classifier', BalancedRandomForestClassifier(n_estimators=100, max_features=0.5))]),
     'regression_cutoff_33':
         Pipeline(steps=[
-            ('scaling', StandardScaler()),
-            ('sampling', SMOTE(k_neighbors=5)),
-            ('classifier', MLPClassifier(hidden_layer_sizes=(10, 10)))
+            ('classifier', BalancedRandomForestClassifier(n_estimators=700,
+                                                          max_features=0.5))
         ]),
     'regression_cutoff_50':
         Pipeline(steps=[
             ('scaling', StandardScaler()),
-            ('sampling',  BorderlineSMOTE(k_neighbors=10)),
-            ('classifier', LogisticRegression(C=1, penalty='l2', solver='warn'))
+            ('sampling', SMOTE(k_neighbors=5)),
+            ('classifier', LogisticRegression(solver='warn', penalty='l2', C=100))
         ]),
     'tred_cutoff':
         Pipeline(steps=[
-            ('classifier', BalancedBaggingClassifier(n_estimators=400))
+            ('classifier', XGBClassifier(max_depth=3, n_estimators=100,
+                                         learning_rate=0.25, gamma=0.5,
+                                         scale_pos_weight=4.205))
         ])
 }
 
 class TargetEnsembler(object):
 
-    def __init__(self, features, use_feature_engineering=0, train_on_partial_prediction=0, use_and_func=1,
+    def __init__(self, features, use_feature_engineering=0, train_on_partial_prediction=1, use_and_func=0,
                  check_on_test_set=0, X_test=None, y_test=None):
         self.features = features
         self.use_feature_engineering = use_feature_engineering
@@ -89,7 +93,7 @@ class TargetEnsembler(object):
         self.use_and_func = use_and_func
         self.check_on_test_set = check_on_test_set
         self.X_test = X_test
-        self.y_test=y_test
+        self.y_test = y_test
         self.combined_model = None
         self.trained_pipelines = {
             'intrusion_cutoff': None,
@@ -134,7 +138,7 @@ class TargetEnsembler(object):
                     train_test_split(X, combined_y, test_size=0.25)
                 self.trained_pipelines[target] = pipeline.fit(_X_train, _y_train[target])
                 y_pred = self.trained_pipelines[target].predict(_X_test)
-                predictions_list.append(y_pred)
+                predictions_list.append(self.trained_pipelines[target].predict_proba(_X_test)[:, 0])
                 print("test f1", target, f1_score(_y_test[target], y_pred))
                 self.trained_pipelines[target] = pipeline.fit(X, y)
                 y = _y_test["PCL_Strict3"]
@@ -169,9 +173,8 @@ class TargetEnsembler(object):
         #c = ((len(y) - sum(y)) / sum(y))
 
         if not self.use_and_func:
-            c = 10
-            pipe = Pipeline(steps=[('feature_selection',
-                                    RFE(XGBClassifier(n_estimators=10, scale_pos_weight=c))),
+            c = 2
+            pipe = Pipeline(steps=[
                                    ('clf', XGBClassifier(scale_pos_weight=c))])
             X = predictions_list
             self.combined_model = pipe.fit(np.array(X).reshape(-1, len(predictions_list)), y)
@@ -192,7 +195,7 @@ class TargetEnsembler(object):
             y_pred = 1
             for i in predictions_list:
                 y_pred = (y_pred & np.array(i))
-            y_pred = y_pred.reshape(-1,1)
+            y_pred = y_pred.reshape(-1, 1)
         else:
             y_pred = self.combined_model.predict(np.array(X).reshape(-1, len(predictions_list)))
 
@@ -200,7 +203,7 @@ class TargetEnsembler(object):
 
 
 def cv(X_train, y_train, features):
-    kfold = StratifiedKFold(n_splits=3, shuffle=True)
+    kfold = StratifiedKFold(n_splits=5, shuffle=True)
 
     scores_f = []
     scores_p = []

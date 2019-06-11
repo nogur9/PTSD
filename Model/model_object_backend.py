@@ -21,6 +21,7 @@ from fancyimpute import KNN, IterativeImputer
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE, ADASYN
 from imblearn.ensemble import BalancedBaggingClassifier, BalancedRandomForestClassifier
 from imblearn.pipeline import Pipeline
+from imblearn.under_sampling import RandomUnderSampler
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 from sklearn import tree
 from sklearn.decomposition import PCA
@@ -70,7 +71,8 @@ class EDAMultiFeatureBackend:
 
 
         params_rf = {
-                  'sampling': [SMOTE(), BorderlineSMOTE()],
+                  'sampling': [#SMOTE(), BorderlineSMOTE()
+                      RandomUnderSampler() ],
                   #'sampling__k_neighbors': [5, 10, 15],
                   #'classifier': [RandomForestClassifier()],
                   'classifier__n_estimators': [100, 250, 400, 700],
@@ -81,12 +83,12 @@ class EDAMultiFeatureBackend:
 
 
         pipe_bbc = Pipeline(steps=[
-            ('classifier', BalancedBaggingClassifier())
+            ('classifier', BalancedRandomForestClassifier())
         ])
 
 
         params_bbc = {
-                  'classifier': [BalancedRandomForestClassifier(), BalancedBaggingClassifier()],
+                  'classifier': [BalancedRandomForestClassifier()],#, BalancedBaggingClassifier()],
                   'classifier__n_estimators': [100, 250, 400, 700],
                   'classifier__max_features': [1.0, 0.9, 0.8,0.5],
                   }
@@ -114,7 +116,8 @@ class EDAMultiFeatureBackend:
         ])
 
         params_lr = {
-                  'sampling': [SMOTE(), BorderlineSMOTE()],
+                  'sampling': [#SMOTE(), BorderlineSMOTE()
+                      RandomUnderSampler()],
                   #'sampling__k_neighbors': [5, 10, 15],
                   'classifier__penalty': ['l1', 'l2'],
                   "classifier__C": [0.001, 0.01, 0.1, 1, 10, 100, 1000],
@@ -128,7 +131,8 @@ class EDAMultiFeatureBackend:
 
 
         params_nn = {
-                  'sampling': [SMOTE(), BorderlineSMOTE()],
+                  'sampling': [#SMOTE(), BorderlineSMOTE(),
+                        RandomUnderSampler()],
                   #'sampling__k_neighbors': [5, 10, 15],
                   'classifier__hidden_layer_sizes': [(100,), (10,), (10, 10), (10, 5), (100, 10), (10, 10, 10)],
                   'classifier__alpha': [0.0001, 0.001, 0.00001],

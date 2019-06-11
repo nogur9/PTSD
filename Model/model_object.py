@@ -60,7 +60,7 @@ class Model:
         path = "C:\‏‏PycharmProjects\PTSD\Data\PTSD.xlsx"
         df = pd.read_excel(path)
         df = df[~df['PCL_Strict3'].isna()]
-        df = df[df["military_exp18_t3"] > 0]
+        df = df[~ ((df["military_exp18_t3"] == 0) & (df["military_exp18_t2"] == 0))]
         df = df[self.features + self.ID + self.target_features]
         df_pcl3 = pd.read_excel("C:\‏‏PycharmProjects\PTSD\Data\questionnaire6PCL3.xlsx")
         df_pcl3 = PCL_calculator(df_pcl3)
@@ -86,26 +86,33 @@ class Model:
         y_col = ["PCL_Strict3"]
         X = df[all_x_col]
         Y = df[y_col]
-        X_train_0, X_test_0, y_train_0, y_test_0 = train_test_split(X, Y, test_size=0.25, random_state=271828, stratify=Y)
-        X_train, X_test, y_train, y_test = train_test_split(X_train_0, y_train_0, test_size=0.25, random_state=271828, stratify=y_train_0)
-        df = pd.concat([X_train, y_train], axis=1)
-        self.X_test = X_test
-        self.y_test =y_test
+        if mew:
+            X_train_0, X_test_0, y_train_0, y_test_0 = train_test_split(X, Y, test_size=0.25, random_state=271828, stratify=Y)
+            X_train, X_test, y_train, y_test = train_test_split(X_train_0, y_train_0, test_size=0.25, random_state=271828, stratify=y_train_0)
+            df = pd.concat([X_train, y_train], axis=1)
+            self.X_test = X_test
+            self.y_test =y_test
 
-        self.X_train_0 = X_train_0
-        self.X_test_0 = X_test_0
-        self.y_train_0 = y_train_0
-        self.y_test_0 = y_test_0
+            self.X_train_0 = X_train_0
+            self.X_test_0 = X_test_0
+            self.y_train_0 = y_train_0
+            self.y_test_0 = y_test_0
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.25,
+                                                                random_state=271828, stratify=Y)
+            df = pd.concat([X_train, y_train], axis=1)
+            self.X_test = X_test
+            self.y_test = y_test
 
         self.df = df
 
     def test_models_for_targets(self):
         targets = {
-            'intrusion_cutoff': 0,
-            'avoidance_cutoff': 0,
-            'hypertention_cutoff': 0,
-            'depression_cutoff': 0,
-            'only_avoidance_cutoff': 0,
+            'intrusion_cutoff': 1,
+            'avoidance_cutoff': 1,
+            'hypertention_cutoff': 1,
+            'depression_cutoff': 1,
+            'only_avoidance_cutoff': 1,
             'diagnosis': 1,
             'regression_cutoff_33': 1,
             'regression_cutoff_50': 1,
