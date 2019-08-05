@@ -42,7 +42,7 @@ for drop in [0, 30, 45]:
             for phq9 in [3, -1, 1, 5]:
                 for highschool in [0, -1]:
                     for exp in [1, 0]:
-                        print(f"drop = {drop}\ntrg = {trg}\nPCL_Strict1 = {PCL_Strict1}\n"
+                        print(f"drop = {drop}\ntrg = {trg}\n"
                               f"phq9 = {phq9}\nhighschool = {highschool}\nexp = {exp}")
 
                         try:

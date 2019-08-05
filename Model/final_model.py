@@ -19,13 +19,13 @@ from sklearn.model_selection import LeaveOneOut
 
 check_on_test_set = 0
 targets_dict = {
-    'intrusion_cutoff': 0,
-    'avoidance_cutoff': 0,
-    'hypertention_cutoff': 0,
+    'intrusion_cutoff': 1,
+    'avoidance_cutoff': 1,
+    'hypertention_cutoff': 1,
     'depression_cutoff': 0,
     'only_avoidance_cutoff': 0,
     'PCL_Strict3': 0,
-    'regression_cutoff_33': 0,
+    'regression_cutoff_33': 1,
     'regression_cutoff_50': 0,
     'tred_cutoff': 0,
 }
@@ -33,59 +33,45 @@ targets_dict = {
 pipeline_per_target = {
     'intrusion_cutoff':
         Pipeline(steps=[
-            ('classifier', XGBClassifier(max_depth=2, n_estimators=100,
-                                         learning_rate=0.1, gamma=0,
-                                         scale_pos_weight=2.9))
+            ('classifier', BalancedBaggingClassifier())
         ]),
     'avoidance_cutoff':
         Pipeline(steps=[
-            ('scaling', StandardScaler()),
-            ('sampling', BorderlineSMOTE(k_neighbors=5)),
-            ('classifier', MLPClassifier(hidden_layer_sizes=(10, 5),
-                                         alpha=1e-05, learning_rate='constant'))
+            ('classifier', BalancedBaggingClassifier())
         ]),
     'hypertention_cutoff':
         Pipeline(steps=[
-            ('scaling', StandardScaler()),
-            ('sampling', BorderlineSMOTE(k_neighbors=15)),
-            ('classifier', LogisticRegression(solver='warn', penalty='l2', C=0.01))
+            ('classifier', BalancedBaggingClassifier())
         ]),
     'depression_cutoff':
         Pipeline(steps=[
-            ('classifier', XGBClassifier(max_depth=2, n_estimators=700,
-                                         learning_rate=0.25, gamma=0,
-                                         scale_pos_weight=2.67))
+            ('classifier', BalancedBaggingClassifier())
         ]),
     'only_avoidance_cutoff':
         Pipeline(steps=[
-            ('classifier', BalancedRandomForestClassifier(n_estimators=100,
-                                                          max_features=0.8))
+            ('classifier', BalancedBaggingClassifier())
         ]),
     'PCL_Strict3':
-        Pipeline(steps=[
-            ('classifier', BalancedRandomForestClassifier(n_estimators=100, max_features=0.5))]),
+            Pipeline(steps=[
+            ('classifier', BalancedBaggingClassifier())
+        ]),
     'regression_cutoff_33':
         Pipeline(steps=[
-            ('classifier', BalancedRandomForestClassifier(n_estimators=700,
-                                                          max_features=0.5))
+            ('classifier', BalancedBaggingClassifier())
         ]),
     'regression_cutoff_50':
         Pipeline(steps=[
-            ('scaling', StandardScaler()),
-            ('sampling', SMOTE(k_neighbors=5)),
-            ('classifier', LogisticRegression(solver='warn', penalty='l2', C=100))
+            ('classifier', BalancedBaggingClassifier())
         ]),
     'tred_cutoff':
-        Pipeline(steps=[
-            ('classifier', XGBClassifier(max_depth=3, n_estimators=100,
-                                         learning_rate=0.25, gamma=0.5,
-                                         scale_pos_weight=4.205))
+            Pipeline(steps=[
+            ('classifier', BalancedBaggingClassifier())
         ])
 }
 
 class TargetEnsembler(object):
 
-    def __init__(self, features, use_feature_engineering=0, train_on_partial_prediction=1, use_and_func=0,
+    def __init__(self, features, use_feature_engineering=0, train_on_partial_prediction=0, use_and_func=1,
                  check_on_test_set=0, X_test=None, y_test=None):
         self.features = features
         self.use_feature_engineering = use_feature_engineering
@@ -203,7 +189,7 @@ class TargetEnsembler(object):
 
 
 def cv(X_train, y_train, features):
-    kfold = StratifiedKFold(n_splits=5, shuffle=True)
+    kfold = StratifiedKFold(n_splits=10, shuffle=True)
 
     scores_f = []
     scores_p = []
@@ -247,8 +233,6 @@ def runner():
         [0, 0, 1, 1, 1, 0, 0, 1, 1],
         [0, 0, 0, 0, 0, 0, 1, 0, 1],
         [0, 0, 0, 0, 0, 0, 0, 1, 1],
-        [0, 0, 0, 0, 0, 1, 0, 0, 1],
-
         ]
 
     for targets_index in targets_indexer:

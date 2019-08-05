@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestClassifier
 import warnings
 warnings.filterwarnings("ignore")
 
-mew = 0
+mew = 1
 class Model:
 
     features = ["age", "highschool_diploma", "dyslexia", "ADHD", "T1Acc1t", "T1Acc1n", "T1bias", "phq1", "lot1",
