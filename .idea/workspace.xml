@@ -2,136 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="8c7d7976-84cf-4152-a3e7-072852c77f2a" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/Untitled-Copy1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/Untitled-Copy2-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/Untitled-Copy3-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/Untitled-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/cool-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/feature importane-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/margin catboost grid search-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/no margin catboost gridsearch-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/regular_T2_DNN-Copy1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/regular_T2_MTL-Copy1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/regular_T2_MTL-Copy2-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/regular_T2_MTL-Copy3-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/regular_T2_MTL-Copy4-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/regular_T2_MTL-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/the one- no margin&amp;diagnosis-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/the one-Copy1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/the one-Copy2-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/the one-Copy3-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/the one-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/the one-diagnosis-Copy1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/the one-diagnosis-Copy3-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/the one-diagnosis-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost2-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost3-Copy1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost3-Copy2-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost3-Copy3-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost3-Copy4-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost3-Copy5-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost3-Copy6-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost3-Copy8-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Catboost3-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy10-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy11-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy2-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy3-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy4-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy6-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy7-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy8-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-Copy9-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/.ipynb_checkpoints/visual code-for catboost-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/Untitled-Copy1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/Untitled-Copy2.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/Untitled-Copy3.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/Untitled.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.156de6ed-b92f3602-aae7950c-5bced813.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.16d8a253-87d4e83-34fc90be-f01e2b9b.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.175e7c52-25c7eef0-eaf953a-a81911bf.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.240c7d69-adec4c4e-6e775b5f-896c46cc.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.35c69ed4-1c90f37b-cd24d33d-f09a598.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.623e9eb7-3c3423f9-28342201-bc924692.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.67817a19-10c4bb6a-57f8a90c-bd7c759a.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.7611015b-5b3c4859-2e0d72ea-b26b9181.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.84689588-2a2cc42c-40d3afa4-97952781.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.88cff680-b5a07629-8fd7b31f-1ecf26d2.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.903aba69-1620797e-9359edd6-4df8cbe7.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.972cda1c-75cb3c82-f146276a-9db686eb.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.9e836e17-bfcd69b7-828a543b-1bfc4f12.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.a62f1a69-eaf0261b-f8d8888c-ef6e7aa7.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.b8f4e66c-6640014c-3eb7bdd6-af87854f.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.c6b7015b-4bebe6be-4871938e-2bf28e48.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.cd0c1b29-3f569f0c-a6e71cc7-2040e4b6.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.d787f554-1775fb5e-7fbd9fe6-c00605f8.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.f3c59c0c-b6bba29d-17f6fae-1b567596.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.f89b5691-e637f6f-52590bb0-a427ca09.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cat_feature_index.fc98c868-718c1b9d-cab8e4ec-5486951.tmp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/catboost_info/catboost_training.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/catboost_info/learn/events.out.tfevents" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/catboost_info/learn_error.tsv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/catboost_info/time_left.tsv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/cool.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/feature importane.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/margin catboost grid search.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/no margin catboost gridsearch.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/out.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/regular_T2_AND_select K best.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/regular_T2_AND_select K best_SVC.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/regular_T2_DNN-Copy1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/regular_T2_MTL-Copy1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/regular_T2_MTL-Copy2.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/regular_T2_MTL-Copy3.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/regular_T2_MTL-Copy4.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/regular_T2_MTL.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/the one- no margin&amp;diagnosis.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/the one-Copy1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/the one-Copy2.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/the one-Copy3.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/the one-diagnosis-Copy1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/the one-diagnosis-Copy3.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/the one-diagnosis.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/the one.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost2.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost3-Copy1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost3-Copy2.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost3-Copy3.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost3-Copy4.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost3-Copy5.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost3-Copy6.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost3-Copy8.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Catboost3.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy10.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy11.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy2.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy3.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy4.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy6.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy7.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy8.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-Copy9.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code-for catboost.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/preprocessing/visual code.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_DNN-Copy1-checkpoint.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jupyter/replication/regular_T2_DNN-Copy1.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/yaron/mew.pptx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/עיבוד מקדים.docx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/PTSD.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Data/PTSD.xlsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_AND_select K best-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_AND_select K best-checkpoint.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_DNN-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_DNN-checkpoint.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_MTL-Copy2-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_MTL-Copy2-checkpoint.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_XGB_class_weight-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/replication/.ipynb_checkpoints/regular_T2_XGB_class_weight-checkpoint.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/replication/regular_T2_AND_select K best.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/replication/regular_T2_AND_select K best.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/replication/regular_T2_DNN.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/replication/regular_T2_DNN.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/replication/regular_T2_MTL-Copy2.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/replication/regular_T2_MTL-Copy2.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jupyter/replication/regular_T2_XGB_class_weight.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/jupyter/replication/regular_T2_XGB_class_weight.ipynb" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -158,7 +29,7 @@
         <entry file="file://$PROJECT_DIR$/feature_engineering/engineering.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="4080">
-              <caret line="241" lean-forward="true" selection-start-line="241" selection-end-line="241" />
+              <caret line="241" selection-start-line="241" selection-end-line="241" />
             </state>
           </provider>
         </entry>
@@ -167,7 +38,7 @@
         <entry file="file://$PROJECT_DIR$/Model/model_object.py">
           <provider selected="true" editor-type-id="text-editor">
             <state>
-              <caret column="26" lean-forward="true" selection-end-line="1" />
+              <caret column="26" selection-end-line="1" />
             </state>
           </provider>
         </entry>
@@ -258,7 +129,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -351,6 +221,7 @@
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -619,7 +490,14 @@
       <option name="project" value="LOCAL" />
       <updated>1565454600174</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="&quot;3commit&quot;">
+      <created>1572870502339</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1572870502341</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -1220,14 +1098,14 @@
     <entry file="file://$PROJECT_DIR$/feature_engineering/engineering.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="4080">
-          <caret line="241" lean-forward="true" selection-start-line="241" selection-end-line="241" />
+          <caret line="241" selection-start-line="241" selection-end-line="241" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/Model/model_object.py">
       <provider selected="true" editor-type-id="text-editor">
         <state>
-          <caret column="26" lean-forward="true" selection-end-line="1" />
+          <caret column="26" selection-end-line="1" />
         </state>
       </provider>
     </entry>
