@@ -1,0 +1,47 @@
+{
+  "features": ["highschool_diploma", "dyslexia",
+            "ADHD", "T1Acc1t", "T1Acc1n", "T1bias",
+            "phq1", "trait1", "state1", "PCL1", "PCL_Strict1",  "trauma_history8_1"],
+
+
+"questionnaires": {
+  "PCL": ["q6.1_INTRU", "q6.2_DREAM", "q6.3_FLASH", "q6.4_UPSET",
+               "q6.5_PHYS",
+
+    "q6.6_AVTHT", "q6.7_AVSIT", "q6.8_AMNES", "q6.9_DISINT",
+               "q6.10_DTACH", "q6.11_NUMB", "q6.12_FUTRE", "q6.13_SLEEP",
+               "q6.14_ANGER", "q6.15_CONC", "q6.16_HYPER", "q6.17_STRTL",
+               "intrusion_score", "intrusion_mean", "intrusion_std", "binary_intrusion",
+               "tred_score", "tred_mean", "tred_std", "binary_tred"],
+
+  "PHQ9":["T1q5.1", "T1q5.2", "T1q5.3", "T1q5.4", "T1q5.5", "T1q5.6", "T1q5.7", "T1q5.8", "T1q5.9"],
+  "state_anxiety_revised": ["T1q2.1", "T1q2.2", "T1q2.3", "T1q2.4", "T1q2.5", "T1q2.6", "T1q2.7",
+    "T1q2.8", "T1q2.9", "T1q2.10", "T1q2.11", "T1q2.12", "T1q2.13", "T1q2.14", "T1q2.15", "T1q2.16",
+    "T1q2.17", "T1q2.18", "T1q2.19", "T1q2.20"],
+
+  "trait_anxiety_revised": ["T1q3.1", "T1q3.2", "T1q3.3", "T1q3.4", "T1q3.5", "T1q3.6",
+    "T1q3.7", "T1q3.8", "T1q3.9", "T1q3.10", "T1q3.11", "T1q3.12", "T1q3.13", "T1q3.14",
+    "T1q3.15", "T1q3.16", "T1q3.17", "T1q3.18", "T1q3.19", "T1q3.20"]
+},
+
+"t1_features": ["phq1", "trait1", "state1", "PCL1", "PCL_Strict1", "T1Acc1t", "T1Acc1n"],
+
+"intrusion": ["q6.1_INTRU", "q6.2_DREAM", "q6.3_FLASH", "q6.4_UPSET", "q6.5_PHYS"],
+"avoidance": ["q6.6_AVTHT", "q6.7_AVSIT", "q6.8_AMNES", "q6.9_DISINT", "q6.10_DTACH",
+             "q6.11_NUMB", "q6.12_FUTRE"],
+"hyper": ["q6.13_SLEEP", "q6.14_ANGER", "q6.15_CONC", "q6.16_HYPER", "q6.17_STRTL"],
+
+"tred": ["q6.1_INTRU", "q6.2_DREAM", "q6.3_FLASH"],
+
+"symptomatic_cutoff": 2,
+"intrusion_cutoff": 0,
+"tred_cutoff": 1,
+  "avoidance_cutoff": 2,
+  "hyper_cutoff": 2,
+
+"useless_features": [],
+  "random_state": 12970
+
+}
+
+
