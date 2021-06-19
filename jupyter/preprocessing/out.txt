@@ -1,9 +1,0 @@
-Index(['T2Acc1t', 'T2Acc1n', 'military_exposure_unit', 'highschool_diploma',
-       'dyslexia', 'ADHD', 'T1Acc1t', 'T1Acc1n', 'T1bias', 'Ashken_scale',
-       ...
-       'standard_resid_intrusion_pcl2', 'cooks_d_avoidance_pcl2',
-       'dffits_avoidance_pcl2', 'standard_resid_avoidance_pcl2',
-       'cooks_d_depression_pcl2', 'dffits_depression_pcl2',
-       'standard_resid_depression_pcl2', 'cooks_d_hypertention_pcl2',
-       'dffits_hypertention_pcl2', 'standard_resid_hypertention_pcl2'],
-      dtype='object', length=240)
